@@ -170,7 +170,8 @@ class _ReaderScreenState extends State<ReaderScreen> {
   Future<String> _extractCurrentPage() async {
     if (_pageText.containsKey(_page)) return _pageText[_page]!;
     if (!_pdfController.isReady || _page < 1 || _page > _pdfController.pages.length) return '';
-    final text = (await _pdfController.pages[_page - 1].loadText()).fullText.trim();
+    final pageText = await _pdfController.pages[_page - 1].loadText();
+    final text = pageText?.fullText.trim() ?? '';
     _pageText[_page] = text;
     return text;
   }
@@ -333,7 +334,6 @@ class _ReaderScreenState extends State<ReaderScreen> {
   void dispose() {
     _tts.stop();
     _translator.close();
-    _pdfController.dispose();
     super.dispose();
   }
 
