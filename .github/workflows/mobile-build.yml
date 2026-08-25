@@ -22,3 +22,21 @@ jobs:
         with:
           name: pdf-reader-android-debug
           path: build/app/outputs/flutter-apk/app-debug.apk
+
+  ios:
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+      - name: Generate platform projects
+        run: flutter create . --platforms=android,ios --project-name pdf_reader
+      - run: flutter pub get
+      - run: flutter analyze
+      - name: Build iOS without code signing
+        run: flutter build ios --release --no-codesign
+      - uses: actions/upload-artifact@v4
+        with:
+          name: pdf-reader-ios-unsigned
+          path: build/ios/iphoneos/Runner.app
