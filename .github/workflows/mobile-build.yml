@@ -1,0 +1,24 @@
+name: Mobile Build
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+jobs:
+  android:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+      - name: Generate platform projects
+        run: flutter create . --platforms=android,ios --project-name pdf_reader
+      - run: flutter pub get
+      - run: flutter analyze
+      - run: flutter build apk --debug
+      - uses: actions/upload-artifact@v4
+        with:
+          name: pdf-reader-android-debug
+          path: build/app/outputs/flutter-apk/app-debug.apk
