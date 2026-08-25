@@ -1,0 +1,11 @@
+{
+  "name":"PDF Reader",
+  "short_name":"PDF Reader",
+  "start_url":"./",
+  "scope":"./",
+  "display":"standalone",
+  "background_color":"#111318",
+  "theme_color":"#4f46e5",
+  "description":"اقرأ ملفات PDF الإنجليزية واستمع إليها واعرض ترجمتها العربية.",
+  "icons":[{"src":"icon.svg","sizes":"any","type":"image/svg+xml","purpose":"any maskable"}]
+}
