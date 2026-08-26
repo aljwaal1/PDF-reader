@@ -65,17 +65,35 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
   int _page = 0;
 
   static const _cards = [
-    (Icons.menu_book_rounded, 'كتبك معك دائمًا', 'اختر ملف PDF وسيتم حفظ نسخة منه داخل التطبيق لتعود إليه بسهولة حتى على الأجهزة القديمة.'),
-    (Icons.record_voice_over_rounded, 'استمع وتابع القراءة', 'استمع للنص الإنجليزي مع مؤشر للكلمة الحالية ونص متحرك يساعدك على متابعة مكان القراءة.'),
-    (Icons.translate_rounded, 'ترجمة عربية مرنة', 'ترجم الصفحة الحالية واختر عرض الترجمة أسفل الصفحة أو بجانبها أو في نافذة قابلة للسحب.'),
-    (Icons.speed_rounded, 'تحكم كامل بالسرعة', 'ارفع أو خفّض سرعة النطق مباشرة أثناء القراءة من شريط تحكم واضح وسريع.'),
+    (
+      Icons.menu_book_rounded,
+      'كتبك معك دائمًا',
+      'اختر ملف PDF وسيتم حفظ نسخة منه داخل التطبيق لتعود إليه بسهولة حتى على الأجهزة القديمة.'
+    ),
+    (
+      Icons.record_voice_over_rounded,
+      'استمع وتابع القراءة',
+      'استمع للنص الإنجليزي مع مؤشر للكلمة الحالية ونص متحرك يساعدك على متابعة مكان القراءة.'
+    ),
+    (
+      Icons.translate_rounded,
+      'ترجمة عربية مرنة',
+      'ترجم الصفحة الحالية واختر عرض الترجمة أسفل الصفحة أو بجانبها أو في نافذة قابلة للسحب.'
+    ),
+    (
+      Icons.speed_rounded,
+      'تحكم كامل بالسرعة',
+      'اختر سرعات بطيئة من 0.5x حتى السرعات العالية، ويمكن تغييرها أثناء القراءة مباشرة.'
+    ),
   ];
 
   Future<void> _finish() async {
     final prefs = await SharedPreferences.getInstance();
     await prefs.setBool('onboardingSeen', true);
     if (!mounted) return;
-    Navigator.of(context).pushReplacement(MaterialPageRoute(builder: (_) => const LibraryScreen()));
+    Navigator.of(context).pushReplacement(
+      MaterialPageRoute(builder: (_) => const LibraryScreen()),
+    );
   }
 
   @override
@@ -114,12 +132,27 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
                             color: Theme.of(context).colorScheme.primaryContainer,
                             borderRadius: BorderRadius.circular(32),
                           ),
-                          child: Icon(card.$1, size: 58, color: Theme.of(context).colorScheme.primary),
+                          child: Icon(
+                            card.$1,
+                            size: 58,
+                            color: Theme.of(context).colorScheme.primary,
+                          ),
                         ),
                         const SizedBox(height: 34),
-                        Text(card.$2, textAlign: TextAlign.center, style: Theme.of(context).textTheme.headlineSmall?.copyWith(fontWeight: FontWeight.bold)),
+                        Text(
+                          card.$2,
+                          textAlign: TextAlign.center,
+                          style: Theme.of(context)
+                              .textTheme
+                              .headlineSmall
+                              ?.copyWith(fontWeight: FontWeight.bold),
+                        ),
                         const SizedBox(height: 16),
-                        Text(card.$3, textAlign: TextAlign.center, style: Theme.of(context).textTheme.bodyLarge?.copyWith(height: 1.7)),
+                        Text(
+                          card.$3,
+                          textAlign: TextAlign.center,
+                          style: Theme.of(context).textTheme.bodyLarge?.copyWith(height: 1.7),
+                        ),
                       ],
                     ),
                   );
@@ -136,7 +169,9 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
                   height: 8,
                   margin: const EdgeInsets.symmetric(horizontal: 4),
                   decoration: BoxDecoration(
-                    color: index == _page ? Theme.of(context).colorScheme.primary : Theme.of(context).colorScheme.outlineVariant,
+                    color: index == _page
+                        ? Theme.of(context).colorScheme.primary
+                        : Theme.of(context).colorScheme.outlineVariant,
                     borderRadius: BorderRadius.circular(8),
                   ),
                 ),
@@ -149,7 +184,10 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
                 child: FilledButton(
                   onPressed: last
                       ? _finish
-                      : () => _controller.nextPage(duration: const Duration(milliseconds: 250), curve: Curves.easeOut),
+                      : () => _controller.nextPage(
+                            duration: const Duration(milliseconds: 250),
+                            curve: Curves.easeOut,
+                          ),
                   child: Padding(
                     padding: const EdgeInsets.symmetric(vertical: 14),
                     child: Text(last ? 'ابدأ الآن' : 'التالي'),
@@ -202,7 +240,9 @@ class _LibraryScreenState extends State<LibraryScreen> {
     final booksDir = Directory('${docs.path}${Platform.pathSeparator}books');
     await booksDir.create(recursive: true);
     final safeName = picked.name.replaceAll(RegExp(r'[\\/:*?"<>|]'), '_');
-    final target = File('${booksDir.path}${Platform.pathSeparator}${DateTime.now().millisecondsSinceEpoch}_$safeName');
+    final target = File(
+      '${booksDir.path}${Platform.pathSeparator}${DateTime.now().millisecondsSinceEpoch}_$safeName',
+    );
 
     if (picked.path != null) {
       final source = File(picked.path!);
@@ -244,7 +284,9 @@ class _LibraryScreenState extends State<LibraryScreen> {
         _lastBook = path;
         _lastPage = 1;
       });
-      Navigator.of(context).push(MaterialPageRoute(builder: (_) => ReaderScreen(filePath: path, initialPage: 1)));
+      Navigator.of(context).push(
+        MaterialPageRoute(builder: (_) => ReaderScreen(filePath: path, initialPage: 1)),
+      );
     } catch (_) {
       _message('لم نتمكن من فتح الكتاب. تأكد أن الملف PDF صالح ثم حاول مرة أخرى.');
     } finally {
@@ -269,7 +311,11 @@ class _LibraryScreenState extends State<LibraryScreen> {
             FilledButton.icon(
               onPressed: _importing ? null : _pickPdf,
               icon: _importing
-                  ? const SizedBox(width: 20, height: 20, child: CircularProgressIndicator(strokeWidth: 2))
+                  ? const SizedBox(
+                      width: 20,
+                      height: 20,
+                      child: CircularProgressIndicator(strokeWidth: 2),
+                    )
                   : const Icon(Icons.picture_as_pdf_outlined),
               label: Padding(
                 padding: const EdgeInsets.symmetric(vertical: 14),
@@ -285,7 +331,12 @@ class _LibraryScreenState extends State<LibraryScreen> {
                   subtitle: Text('الصفحة $_lastPage'),
                   trailing: const Icon(Icons.arrow_forward_ios_rounded),
                   onTap: () => Navigator.of(context).push(
-                    MaterialPageRoute(builder: (_) => ReaderScreen(filePath: _lastBook!, initialPage: _lastPage)),
+                    MaterialPageRoute(
+                      builder: (_) => ReaderScreen(
+                        filePath: _lastBook!,
+                        initialPage: _lastPage,
+                      ),
+                    ),
                   ),
                 ),
               ),
@@ -294,7 +345,10 @@ class _LibraryScreenState extends State<LibraryScreen> {
             Text(
               'الكتاب الذي تضيفه يُحفظ داخل التطبيق لقراءة أكثر استقرارًا على مختلف الأجهزة.',
               textAlign: TextAlign.center,
-              style: Theme.of(context).textTheme.bodyMedium?.copyWith(color: Colors.grey.shade600),
+              style: Theme.of(context)
+                  .textTheme
+                  .bodyMedium
+                  ?.copyWith(color: Colors.grey.shade600),
             ),
           ],
         ),
@@ -306,7 +360,12 @@ class _LibraryScreenState extends State<LibraryScreen> {
 enum TranslationLayout { pdfOnly, translationOnly, below, sideBySide, bottomSheet }
 
 class ReaderScreen extends StatefulWidget {
-  const ReaderScreen({super.key, required this.filePath, required this.initialPage});
+  const ReaderScreen({
+    super.key,
+    required this.filePath,
+    required this.initialPage,
+  });
+
   final String filePath;
   final int initialPage;
 
@@ -330,10 +389,11 @@ class _ReaderScreenState extends State<ReaderScreen> {
   int _pageCount = 0;
   bool _busy = false;
   bool _speaking = false;
-  double _speechRate = 0.5;
+  double _speechRate = 0.50;
   String _spokenText = '';
   String _spokenWord = '';
   int _spokenEnd = 0;
+  int _speechOffset = 0;
   TranslationLayout _layout = TranslationLayout.bottomSheet;
 
   @override
@@ -347,10 +407,10 @@ class _ReaderScreenState extends State<ReaderScreen> {
     });
     _tts.setProgressHandler((text, start, end, word) {
       if (!mounted) return;
+      final absoluteEnd = (_speechOffset + end).clamp(0, _spokenText.length);
       setState(() {
-        _spokenText = text;
         _spokenWord = word;
-        _spokenEnd = end;
+        _spokenEnd = absoluteEnd;
       });
     });
     _prepareTranslationModels();
@@ -367,7 +427,11 @@ class _ReaderScreenState extends State<ReaderScreen> {
 
   Future<String> _extractCurrentPage() async {
     if (_pageText.containsKey(_page)) return _pageText[_page]!;
-    if (!_pdfController.isReady || _page < 1 || _page > _pdfController.pages.length) return '';
+    if (!_pdfController.isReady ||
+        _page < 1 ||
+        _page > _pdfController.pages.length) {
+      return '';
+    }
     final pageText = await _pdfController.pages[_page - 1].loadText();
     final text = pageText?.fullText.trim() ?? '';
     _pageText[_page] = text;
@@ -402,27 +466,62 @@ class _ReaderScreenState extends State<ReaderScreen> {
       if (mounted) setState(() => _speaking = false);
       return;
     }
+
     final text = await _extractCurrentPage();
     if (text.isEmpty) {
       _showMessage('لا يوجد نص إنجليزي قابل للقراءة في هذه الصفحة.');
       return;
     }
+
+    setState(() {
+      _spokenText = text;
+      _spokenEnd = 0;
+      _spokenWord = '';
+      _speechOffset = 0;
+      _speaking = true;
+    });
     await _tts.setSpeechRate(_speechRate);
-    if (mounted) {
-      setState(() {
-        _speaking = true;
-        _spokenText = text;
-        _spokenEnd = 0;
-        _spokenWord = '';
-      });
-    }
     await _tts.speak(text);
   }
 
+  int _restartOffset() {
+    if (_spokenText.isEmpty || _spokenEnd <= 0) return 0;
+    var offset = (_spokenEnd - _spokenWord.length).clamp(0, _spokenText.length);
+    while (offset > 0 &&
+        offset < _spokenText.length &&
+        !_spokenText[offset - 1].trim().isEmpty) {
+      offset--;
+    }
+    return offset;
+  }
+
   Future<void> _setRate(double value) async {
-    final rate = value.clamp(0.30, 0.90).toDouble();
-    setState(() => _speechRate = rate);
+    // flutter_tts uses 0.5 as a natural ~1.0x speaking rate on Android/iOS.
+    // Internal 0.25..1.00 therefore maps to the user-facing 0.5x..2.0x range.
+    final rate = value.clamp(0.25, 1.00).toDouble();
+    final wasSpeaking = _speaking && _spokenText.isNotEmpty;
+    final resumeAt = wasSpeaking ? _restartOffset() : 0;
+
+    if (mounted) setState(() => _speechRate = rate);
+
+    if (!wasSpeaking) {
+      await _tts.setSpeechRate(rate);
+      return;
+    }
+
+    await _tts.stop();
     await _tts.setSpeechRate(rate);
+
+    if (!mounted || resumeAt >= _spokenText.length) return;
+    final remaining = _spokenText.substring(resumeAt).trimLeft();
+    final removedLeading = _spokenText.substring(resumeAt).length - remaining.length;
+    _speechOffset = resumeAt + removedLeading;
+    setState(() {
+      _speaking = true;
+      _spokenEnd = _speechOffset;
+      _spokenWord = '';
+    });
+    await _tts.speak(remaining);
   }
 
   Future<void> _savePage(int page) async {
@@ -443,8 +542,12 @@ class _ReaderScreenState extends State<ReaderScreen> {
       _speaking = false;
       _spokenWord = '';
       _spokenEnd = 0;
+      _speechOffset = 0;
     });
-    await _pdfController.goToPage(pageNumber: nextPage, anchor: PdfPageAnchor.top);
+    await _pdfController.goToPage(
+      pageNumber: nextPage,
+      anchor: PdfPageAnchor.top,
+    );
   }
 
   double get _readingProgress {
@@ -466,11 +569,16 @@ class _ReaderScreenState extends State<ReaderScreen> {
       params: PdfViewerParams(
         margin: 8,
         pageOverlaysBuilder: (context, pageRect, pdfPage) {
-          if (pdfPage.pageNumber != _page || (!_speaking && _spokenWord.isEmpty)) return const [];
+          if (pdfPage.pageNumber != _page ||
+              (!_speaking && _spokenWord.isEmpty)) {
+            return const [];
+          }
           return [
             Positioned(
               left: pageRect.left + 12,
-              right: pageRect.right > pageRect.left ? MediaQuery.sizeOf(context).width - pageRect.right + 12 : 12,
+              right: pageRect.right > pageRect.left
+                  ? MediaQuery.sizeOf(context).width - pageRect.right + 12
+                  : 12,
               top: pageRect.top + 12,
               child: IgnorePointer(
                 child: Card(
@@ -484,7 +592,13 @@ class _ReaderScreenState extends State<ReaderScreen> {
                           children: [
                             const Icon(Icons.graphic_eq_rounded, size: 18),
                             const SizedBox(width: 8),
-                            Expanded(child: Text(_spokenWord.isEmpty ? 'بدء القراءة...' : _spokenWord, maxLines: 1, overflow: TextOverflow.ellipsis)),
+                            Expanded(
+                              child: Text(
+                                _spokenWord.isEmpty ? 'بدء القراءة...' : _spokenWord,
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                              ),
+                            ),
                           ],
                         ),
                         const SizedBox(height: 6),
@@ -527,7 +641,12 @@ class _ReaderScreenState extends State<ReaderScreen> {
                         label: const Text('ترجمة الصفحة الحالية'),
                       ),
               )
-            : SingleChildScrollView(child: SelectableText(text, style: const TextStyle(fontSize: 18, height: 1.8))),
+            : SingleChildScrollView(
+                child: SelectableText(
+                  text,
+                  style: const TextStyle(fontSize: 18, height: 1.8),
+                ),
+              ),
       ),
     );
   }
@@ -539,9 +658,20 @@ class _ReaderScreenState extends State<ReaderScreen> {
       case TranslationLayout.translationOnly:
         return _translationPane();
       case TranslationLayout.below:
-        return Column(children: [Expanded(flex: 3, child: _pdfView()), Expanded(flex: 2, child: _translationPane())]);
+        return Column(
+          children: [
+            Expanded(flex: 3, child: _pdfView()),
+            Expanded(flex: 2, child: _translationPane()),
+          ],
+        );
       case TranslationLayout.sideBySide:
-        return Row(children: [Expanded(child: _pdfView()), const VerticalDivider(width: 1), Expanded(child: _translationPane())]);
+        return Row(
+          children: [
+            Expanded(child: _pdfView()),
+            const VerticalDivider(width: 1),
+            Expanded(child: _translationPane()),
+          ],
+        );
       case TranslationLayout.bottomSheet:
         return Stack(
           children: [
@@ -558,11 +688,17 @@ class _ReaderScreenState extends State<ReaderScreen> {
                   clipBehavior: Clip.antiAlias,
                   child: Column(
                     children: [
-                      const Padding(padding: EdgeInsets.only(top: 8), child: SizedBox(width: 42, child: Divider(thickness: 4))),
+                      const Padding(
+                        padding: EdgeInsets.only(top: 8),
+                        child: SizedBox(width: 42, child: Divider(thickness: 4)),
+                      ),
                       Expanded(
                         child: SingleChildScrollView(
                           controller: controller,
-                          child: SizedBox(height: MediaQuery.sizeOf(context).height * .65, child: _translationPane()),
+                          child: SizedBox(
+                            height: MediaQuery.sizeOf(context).height * .65,
+                            child: _translationPane(),
+                          ),
                         ),
                       ),
                     ],
@@ -592,6 +728,7 @@ class _ReaderScreenState extends State<ReaderScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final visibleRate = _speechRate * 2;
     return Scaffold(
       appBar: AppBar(
         title: Text(_pageCount == 0 ? 'PDF Reader' : 'Page $_page / $_pageCount'),
@@ -601,7 +738,14 @@ class _ReaderScreenState extends State<ReaderScreen> {
             icon: const Icon(Icons.view_quilt_outlined),
             initialValue: _layout,
             onSelected: (value) => setState(() => _layout = value),
-            itemBuilder: (_) => TranslationLayout.values.map((value) => PopupMenuItem(value: value, child: Text(_layoutName(value)))).toList(),
+            itemBuilder: (_) => TranslationLayout.values
+                .map(
+                  (value) => PopupMenuItem(
+                    value: value,
+                    child: Text(_layoutName(value)),
+                  ),
+                )
+                .toList(),
           ),
         ],
       ),
@@ -624,33 +768,76 @@ class _ReaderScreenState extends State<ReaderScreen> {
                   ),
                   child: SingleChildScrollView(
                     reverse: true,
-                    child: Text(_typedText.isEmpty ? '...' : _typedText, textDirection: TextDirection.ltr, style: const TextStyle(fontSize: 16, height: 1.4)),
+                    child: Text(
+                      _typedText.isEmpty ? '...' : _typedText,
+                      textDirection: TextDirection.ltr,
+                      style: const TextStyle(fontSize: 16, height: 1.4),
+                    ),
                   ),
                 ),
               Row(
                 children: [
-                  IconButton(onPressed: () => _setRate(_speechRate - .05), icon: const Icon(Icons.remove_circle_outline), tooltip: 'أبطأ'),
-                  Text('${(_speechRate * 2).toStringAsFixed(1)}x', style: const TextStyle(fontWeight: FontWeight.bold)),
-                  Expanded(
-                    child: Slider(
-                      min: .30,
-                      max: .90,
-                      divisions: 12,
-                      value: _speechRate,
-                      onChanged: _setRate,
+                  IconButton(
+                    onPressed: _speechRate > .25
+                        ? () => _setRate(_speechRate - .05)
+                        : null,
+                    icon: const Icon(Icons.remove_circle_outline),
+                    tooltip: 'أبطأ',
+                  ),
+                  SizedBox(
+                    width: 46,
+                    child: Text(
+                      '${visibleRate.toStringAsFixed(1)}x',
+                      textAlign: TextAlign.center,
+                      style: const TextStyle(fontWeight: FontWeight.bold),
                     ),
                   ),
-                  IconButton(onPressed: () => _setRate(_speechRate + .05), icon: const Icon(Icons.add_circle_outline), tooltip: 'أسرع'),
+                  Expanded(
+                    child: Slider(
+                      min: .25,
+                      max: 1.00,
+                      divisions: 15,
+                      value: _speechRate,
+                      label: '${visibleRate.toStringAsFixed(1)}x',
+                      onChanged: (value) => setState(() => _speechRate = value),
+                      onChangeEnd: _setRate,
+                    ),
+                  ),
+                  IconButton(
+                    onPressed: _speechRate < 1.0
+                        ? () => _setRate(_speechRate + .05)
+                        : null,
+                    icon: const Icon(Icons.add_circle_outline),
+                    tooltip: 'أسرع',
+                  ),
                 ],
               ),
+              Wrap(
+                spacing: 4,
+                runSpacing: 2,
+                alignment: WrapAlignment.center,
+                children: const [0.5, 0.7, 0.8, 0.9, 1.0, 1.2, 1.5, 2.0]
+                    .map(
+                      (speed) => _SpeedPreset(speed: speed),
+                    )
+                    .toList(),
+              ),
+              const SizedBox(height: 4),
               Row(
                 children: [
-                  IconButton.filledTonal(onPressed: _page > 1 ? () => _go(_page - 1) : null, icon: const Icon(Icons.chevron_left)),
+                  IconButton.filledTonal(
+                    onPressed: _page > 1 ? () => _go(_page - 1) : null,
+                    icon: const Icon(Icons.chevron_left),
+                  ),
                   const SizedBox(width: 6),
                   Expanded(
                     child: FilledButton.tonalIcon(
                       onPressed: _toggleSpeech,
-                      icon: Icon(_speaking ? Icons.stop_circle_outlined : Icons.volume_up_outlined),
+                      icon: Icon(
+                        _speaking
+                            ? Icons.stop_circle_outlined
+                            : Icons.volume_up_outlined,
+                      ),
                       label: Text(_speaking ? 'إيقاف القراءة' : 'قراءة الصفحة'),
                     ),
                   ),
@@ -663,13 +850,34 @@ class _ReaderScreenState extends State<ReaderScreen> {
                     ),
                   ),
                   const SizedBox(width: 6),
-                  IconButton.filledTonal(onPressed: _page < _pageCount ? () => _go(_page + 1) : null, icon: const Icon(Icons.chevron_right)),
+                  IconButton.filledTonal(
+                    onPressed: _page < _pageCount ? () => _go(_page + 1) : null,
+                    icon: const Icon(Icons.chevron_right),
+                  ),
                 ],
               ),
             ],
           ),
         ),
       ),
+    );
+  }
+}
+
+class _SpeedPreset extends StatelessWidget {
+  const _SpeedPreset({required this.speed});
+
+  final double speed;
+
+  @override
+  Widget build(BuildContext context) {
+    final reader = context.findAncestorStateOfType<_ReaderScreenState>();
+    final selected = reader != null && ((reader._speechRate * 2) - speed).abs() < 0.01;
+    return ChoiceChip(
+      label: Text('${speed.toStringAsFixed(1)}x'),
+      selected: selected,
+      visualDensity: VisualDensity.compact,
+      onSelected: reader == null ? null : (_) => reader._setRate(speed / 2),
     );
   }
 }
