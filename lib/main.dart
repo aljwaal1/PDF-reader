@@ -25,7 +25,7 @@ class PdfReaderApp extends StatelessWidget {
       theme: ThemeData(
         useMaterial3: true,
         colorScheme: ColorScheme.fromSeed(seedColor: const Color(0xFF5B5FEF)),
-        scaffoldBackgroundColor: const Color(0xFFF7F7FB),
+        scaffoldBackgroundColor: const Color(0xFFF5F6FA),
         cardTheme: const CardThemeData(margin: EdgeInsets.zero),
       ),
       home: const LaunchGate(),
@@ -68,7 +68,7 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
 
   static const _cards = [
     (Icons.menu_book_rounded, 'كتبك معك دائمًا', 'أضف ملفات PDF وسيحفظ التطبيق نسخة منها لتعود إليها بسهولة.'),
-    (Icons.record_voice_over_rounded, 'استمع وتابع القراءة', 'استمع للنص الإنجليزي مع مؤشر للكلمة الحالية ونص متحرك.'),
+    (Icons.record_voice_over_rounded, 'استمع وتابع القراءة', 'تابع الجملة الحالية مع تمييز الكلمة المنطوقة داخلها بوضوح.'),
     (Icons.translate_rounded, 'ترجمة عربية مرنة', 'ترجم الصفحة الحالية واختر طريقة عرض الترجمة التي تناسبك.'),
     (Icons.speed_rounded, 'تحكم كامل بالسرعة', 'اختر من 0.5x حتى 2.0x وغيّر السرعة أثناء القراءة مباشرة.'),
   ];
@@ -89,6 +89,7 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
   @override
   Widget build(BuildContext context) {
     final last = _page == _cards.length - 1;
+    final scheme = Theme.of(context).colorScheme;
     return Scaffold(
       body: SafeArea(
         child: Column(
@@ -110,17 +111,14 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
                       mainAxisAlignment: MainAxisAlignment.center,
                       children: [
                         Container(
-                          width: 124,
-                          height: 124,
-                          decoration: BoxDecoration(
-                            color: Theme.of(context).colorScheme.primaryContainer,
-                            borderRadius: BorderRadius.circular(36),
-                          ),
-                          child: Icon(card.$1, size: 60, color: Theme.of(context).colorScheme.primary),
+                          width: 116,
+                          height: 116,
+                          decoration: BoxDecoration(color: scheme.primaryContainer, borderRadius: BorderRadius.circular(32)),
+                          child: Icon(card.$1, size: 56, color: scheme.primary),
                         ),
-                        const SizedBox(height: 34),
+                        const SizedBox(height: 30),
                         Text(card.$2, textAlign: TextAlign.center, style: Theme.of(context).textTheme.headlineSmall?.copyWith(fontWeight: FontWeight.w800)),
-                        const SizedBox(height: 16),
+                        const SizedBox(height: 14),
                         Text(card.$3, textAlign: TextAlign.center, style: Theme.of(context).textTheme.bodyLarge?.copyWith(height: 1.7)),
                       ],
                     ),
@@ -138,22 +136,19 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
                   height: 8,
                   margin: const EdgeInsets.symmetric(horizontal: 4),
                   decoration: BoxDecoration(
-                    color: index == _page ? Theme.of(context).colorScheme.primary : Theme.of(context).colorScheme.outlineVariant,
+                    color: index == _page ? scheme.primary : scheme.outlineVariant,
                     borderRadius: BorderRadius.circular(8),
                   ),
                 ),
               ),
             ),
             Padding(
-              padding: const EdgeInsets.all(24),
+              padding: const EdgeInsets.all(22),
               child: SizedBox(
                 width: double.infinity,
                 child: FilledButton(
                   onPressed: last ? _finish : () => _controller.nextPage(duration: const Duration(milliseconds: 250), curve: Curves.easeOut),
-                  child: Padding(
-                    padding: const EdgeInsets.symmetric(vertical: 14),
-                    child: Text(last ? 'ابدأ الآن' : 'التالي'),
-                  ),
+                  child: Padding(padding: const EdgeInsets.symmetric(vertical: 12), child: Text(last ? 'ابدأ الآن' : 'التالي')),
                 ),
               ),
             ),
@@ -209,7 +204,6 @@ class _LibraryScreenState extends State<LibraryScreen> {
     await booksDir.create(recursive: true);
     final safeName = picked.name.replaceAll(RegExp(r'[\\/:*?"<>|]'), '_');
     final target = File('${booksDir.path}${Platform.pathSeparator}${DateTime.now().millisecondsSinceEpoch}_$safeName');
-
     if (picked.path != null) {
       final source = File(picked.path!);
       if (await source.exists()) {
@@ -217,7 +211,6 @@ class _LibraryScreenState extends State<LibraryScreen> {
         return target.path;
       }
     }
-
     final stream = picked.readStream;
     if (stream != null) {
       final sink = target.openWrite();
@@ -231,11 +224,7 @@ class _LibraryScreenState extends State<LibraryScreen> {
   Future<void> _pickPdf() async {
     setState(() => _importing = true);
     try {
-      final result = await FilePicker.platform.pickFiles(
-        type: FileType.custom,
-        allowedExtensions: ['pdf'],
-        withReadStream: true,
-      );
+      final result = await FilePicker.platform.pickFiles(type: FileType.custom, allowedExtensions: ['pdf'], withReadStream: true);
       if (result == null || result.files.isEmpty) return;
       final path = await _importPdf(result.files.single);
       if (path == null) {
@@ -271,21 +260,11 @@ class _LibraryScreenState extends State<LibraryScreen> {
   }
 
   Widget _featureChip(IconData icon, String label) {
+    final scheme = Theme.of(context).colorScheme;
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: Theme.of(context).colorScheme.outlineVariant),
-      ),
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Icon(icon, size: 18, color: Theme.of(context).colorScheme.primary),
-          const SizedBox(width: 7),
-          Text(label, style: const TextStyle(fontWeight: FontWeight.w600)),
-        ],
-      ),
+      padding: const EdgeInsets.symmetric(horizontal: 11, vertical: 8),
+      decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(14), border: Border.all(color: scheme.outlineVariant)),
+      child: Row(mainAxisSize: MainAxisSize.min, children: [Icon(icon, size: 17, color: scheme.primary), const SizedBox(width: 6), Text(label, style: const TextStyle(fontWeight: FontWeight.w600))]),
     );
   }
 
@@ -297,161 +276,61 @@ class _LibraryScreenState extends State<LibraryScreen> {
         child: RefreshIndicator(
           onRefresh: _loadState,
           child: ListView(
-            padding: const EdgeInsets.fromLTRB(20, 18, 20, 28),
+            padding: const EdgeInsets.fromLTRB(18, 16, 18, 26),
             children: [
               Row(
                 children: [
-                  Container(
-                    width: 48,
-                    height: 48,
-                    decoration: BoxDecoration(color: scheme.primaryContainer, borderRadius: BorderRadius.circular(16)),
-                    child: Icon(Icons.auto_stories_rounded, color: scheme.primary),
-                  ),
-                  const SizedBox(width: 12),
-                  const Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text('قارئ الكتب', style: TextStyle(fontSize: 24, fontWeight: FontWeight.w900)),
-                        SizedBox(height: 2),
-                        Text('اقرأ • استمع • ترجم', style: TextStyle(color: Colors.black54, fontWeight: FontWeight.w500)),
-                      ],
-                    ),
-                  ),
+                  Container(width: 46, height: 46, decoration: BoxDecoration(color: scheme.primaryContainer, borderRadius: BorderRadius.circular(15)), child: Icon(Icons.auto_stories_rounded, color: scheme.primary)),
+                  const SizedBox(width: 11),
+                  const Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [Text('قارئ الكتب', style: TextStyle(fontSize: 23, fontWeight: FontWeight.w900)), SizedBox(height: 2), Text('اقرأ • استمع • ترجم', style: TextStyle(color: Colors.black54, fontWeight: FontWeight.w500))])),
                   IconButton.filledTonal(onPressed: _importing ? null : _pickPdf, icon: const Icon(Icons.add_rounded), tooltip: 'إضافة كتاب'),
                 ],
               ),
-              const SizedBox(height: 24),
+              const SizedBox(height: 22),
               if (_lastBook != null) ...[
                 Text('تابع القراءة', style: Theme.of(context).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.w800)),
-                const SizedBox(height: 12),
+                const SizedBox(height: 10),
                 InkWell(
-                  borderRadius: BorderRadius.circular(26),
+                  borderRadius: BorderRadius.circular(24),
                   onTap: _continueReading,
                   child: Ink(
-                    padding: const EdgeInsets.all(18),
-                    decoration: BoxDecoration(
-                      gradient: LinearGradient(colors: [scheme.primaryContainer, scheme.secondaryContainer]),
-                      borderRadius: BorderRadius.circular(26),
-                    ),
+                    padding: const EdgeInsets.all(16),
+                    decoration: BoxDecoration(gradient: LinearGradient(colors: [scheme.primaryContainer, scheme.secondaryContainer]), borderRadius: BorderRadius.circular(24)),
                     child: Row(
                       children: [
-                        Container(
-                          width: 76,
-                          height: 102,
-                          decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(16)),
-                          child: Column(
-                            mainAxisAlignment: MainAxisAlignment.center,
-                            children: [
-                              Icon(Icons.picture_as_pdf_rounded, size: 38, color: scheme.primary),
-                              const SizedBox(height: 6),
-                              const Text('PDF', style: TextStyle(fontWeight: FontWeight.w900)),
-                            ],
-                          ),
-                        ),
-                        const SizedBox(width: 16),
-                        Expanded(
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Text(_bookName, maxLines: 2, overflow: TextOverflow.ellipsis, style: const TextStyle(fontSize: 17, fontWeight: FontWeight.w800)),
-                              const SizedBox(height: 10),
-                              Row(
-                                children: [
-                                  Icon(Icons.bookmark_rounded, size: 18, color: scheme.primary),
-                                  const SizedBox(width: 6),
-                                  Text('الصفحة $_lastPage', style: const TextStyle(fontWeight: FontWeight.w600)),
-                                ],
-                              ),
-                              const SizedBox(height: 14),
-                              FilledButton.icon(onPressed: _continueReading, icon: const Icon(Icons.play_arrow_rounded), label: const Text('متابعة')),
-                            ],
-                          ),
-                        ),
+                        Container(width: 68, height: 92, decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(15)), child: Column(mainAxisAlignment: MainAxisAlignment.center, children: [Icon(Icons.picture_as_pdf_rounded, size: 34, color: scheme.primary), const SizedBox(height: 5), const Text('PDF', style: TextStyle(fontWeight: FontWeight.w900))])),
+                        const SizedBox(width: 14),
+                        Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [Text(_bookName, maxLines: 2, overflow: TextOverflow.ellipsis, style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w800)), const SizedBox(height: 8), Text('الصفحة $_lastPage', style: const TextStyle(fontWeight: FontWeight.w600)), const SizedBox(height: 12), FilledButton.icon(onPressed: _continueReading, icon: const Icon(Icons.play_arrow_rounded), label: const Text('متابعة'))])),
                       ],
                     ),
                   ),
                 ),
-                const SizedBox(height: 26),
+                const SizedBox(height: 24),
               ],
-              Row(
-                children: [
-                  Expanded(child: Text('مكتبتي', style: Theme.of(context).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.w800))),
-                  TextButton.icon(onPressed: _importing ? null : _pickPdf, icon: const Icon(Icons.add), label: const Text('إضافة كتاب')),
-                ],
-              ),
-              const SizedBox(height: 10),
+              Row(children: [Expanded(child: Text('مكتبتي', style: Theme.of(context).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.w800))), TextButton.icon(onPressed: _importing ? null : _pickPdf, icon: const Icon(Icons.add), label: const Text('إضافة كتاب'))]),
+              const SizedBox(height: 9),
               if (_lastBook == null)
                 Container(
-                  padding: const EdgeInsets.fromLTRB(22, 30, 22, 26),
-                  decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(26), border: Border.all(color: scheme.outlineVariant)),
-                  child: Column(
-                    children: [
-                      Container(
-                        width: 84,
-                        height: 84,
-                        decoration: BoxDecoration(color: scheme.primaryContainer.withValues(alpha: .55), shape: BoxShape.circle),
-                        child: Icon(Icons.library_books_rounded, size: 42, color: scheme.primary),
-                      ),
-                      const SizedBox(height: 18),
-                      const Text('مكتبتك جاهزة للكتاب الأول', style: TextStyle(fontSize: 19, fontWeight: FontWeight.w800), textAlign: TextAlign.center),
-                      const SizedBox(height: 8),
-                      const Text('أضف أي كتاب PDF وابدأ القراءة والاستماع والترجمة من مكان واحد.', textAlign: TextAlign.center, style: TextStyle(height: 1.5, color: Colors.black54)),
-                      const SizedBox(height: 20),
-                      SizedBox(
-                        width: double.infinity,
-                        child: FilledButton.icon(
-                          onPressed: _importing ? null : _pickPdf,
-                          icon: _importing ? const SizedBox(width: 18, height: 18, child: CircularProgressIndicator(strokeWidth: 2)) : const Icon(Icons.upload_file_rounded),
-                          label: Padding(padding: const EdgeInsets.symmetric(vertical: 12), child: Text(_importing ? 'جاري إضافة الكتاب...' : 'اختر كتاب PDF')),
-                        ),
-                      ),
-                    ],
-                  ),
+                  padding: const EdgeInsets.fromLTRB(20, 28, 20, 24),
+                  decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(24), border: Border.all(color: scheme.outlineVariant)),
+                  child: Column(children: [Container(width: 78, height: 78, decoration: BoxDecoration(color: scheme.primaryContainer.withValues(alpha: .55), shape: BoxShape.circle), child: Icon(Icons.library_books_rounded, size: 39, color: scheme.primary)), const SizedBox(height: 16), const Text('مكتبتك جاهزة للكتاب الأول', style: TextStyle(fontSize: 18, fontWeight: FontWeight.w800), textAlign: TextAlign.center), const SizedBox(height: 8), const Text('أضف أي كتاب PDF وابدأ القراءة والاستماع والترجمة من مكان واحد.', textAlign: TextAlign.center, style: TextStyle(height: 1.5, color: Colors.black54)), const SizedBox(height: 18), SizedBox(width: double.infinity, child: FilledButton.icon(onPressed: _importing ? null : _pickPdf, icon: _importing ? const SizedBox(width: 18, height: 18, child: CircularProgressIndicator(strokeWidth: 2)) : const Icon(Icons.upload_file_rounded), label: Padding(padding: const EdgeInsets.symmetric(vertical: 10), child: Text(_importing ? 'جاري إضافة الكتاب...' : 'اختر كتاب PDF'))))]),
                 )
               else
                 Card(
                   elevation: 0,
                   color: Colors.white,
-                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(22), side: BorderSide(color: scheme.outlineVariant)),
-                  child: ListTile(
-                    contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
-                    leading: Container(
-                      width: 48,
-                      height: 58,
-                      decoration: BoxDecoration(color: scheme.errorContainer, borderRadius: BorderRadius.circular(12)),
-                      child: Icon(Icons.picture_as_pdf_rounded, color: scheme.onErrorContainer),
-                    ),
-                    title: Text(_bookName, maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(fontWeight: FontWeight.w800)),
-                    subtitle: Text('آخر وصول: الصفحة $_lastPage'),
-                    trailing: const Icon(Icons.chevron_right_rounded),
-                    onTap: _continueReading,
-                  ),
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20), side: BorderSide(color: scheme.outlineVariant)),
+                  child: ListTile(contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8), leading: Container(width: 46, height: 56, decoration: BoxDecoration(color: scheme.errorContainer, borderRadius: BorderRadius.circular(11)), child: Icon(Icons.picture_as_pdf_rounded, color: scheme.onErrorContainer)), title: Text(_bookName, maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(fontWeight: FontWeight.w800)), subtitle: Text('آخر وصول: الصفحة $_lastPage'), trailing: const Icon(Icons.chevron_right_rounded), onTap: _continueReading),
                 ),
-              const SizedBox(height: 26),
+              const SizedBox(height: 24),
               Text('كل ما تحتاجه أثناء القراءة', style: Theme.of(context).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w800)),
-              const SizedBox(height: 12),
-              Wrap(
-                spacing: 8,
-                runSpacing: 8,
-                children: [
-                  _featureChip(Icons.volume_up_rounded, 'قراءة صوتية'),
-                  _featureChip(Icons.translate_rounded, 'ترجمة عربية'),
-                  _featureChip(Icons.speed_rounded, 'سرعة مرنة'),
-                  _featureChip(Icons.visibility_rounded, 'متابعة الكلمة'),
-                ],
-              ),
+              const SizedBox(height: 10),
+              Wrap(spacing: 7, runSpacing: 7, children: [_featureChip(Icons.volume_up_rounded, 'قراءة صوتية'), _featureChip(Icons.translate_rounded, 'ترجمة عربية'), _featureChip(Icons.speed_rounded, 'سرعة مرنة'), _featureChip(Icons.visibility_rounded, 'متابعة الكلمة')]),
             ],
           ),
         ),
       ),
-      floatingActionButton: _lastBook == null
-          ? null
-          : FloatingActionButton.extended(
-              onPressed: _importing ? null : _pickPdf,
-              icon: const Icon(Icons.add_rounded),
-              label: const Text('كتاب جديد'),
-            ),
+      floatingActionButton: _lastBook == null ? null : FloatingActionButton.extended(onPressed: _importing ? null : _pickPdf, icon: const Icon(Icons.add_rounded), label: const Text('كتاب جديد')),
     );
   }
 }
@@ -479,12 +358,14 @@ class _ReaderScreenState extends State<ReaderScreen> {
   int _pageCount = 0;
   bool _busy = false;
   bool _speaking = false;
+  bool _showTranscript = false;
   double _speechRate = .50;
   String _spokenText = '';
   String _spokenWord = '';
+  int _spokenStart = 0;
   int _spokenEnd = 0;
   int _speechOffset = 0;
-  TranslationLayout _layout = TranslationLayout.bottomSheet;
+  TranslationLayout _layout = TranslationLayout.pdfOnly;
 
   @override
   void initState() {
@@ -497,9 +378,11 @@ class _ReaderScreenState extends State<ReaderScreen> {
     });
     _tts.setProgressHandler((text, start, end, word) {
       if (!mounted) return;
+      final absoluteStart = (_speechOffset + start).clamp(0, _spokenText.length);
       final absoluteEnd = (_speechOffset + end).clamp(0, _spokenText.length);
       setState(() {
         _spokenWord = word;
+        _spokenStart = absoluteStart;
         _spokenEnd = absoluteEnd;
       });
     });
@@ -507,25 +390,34 @@ class _ReaderScreenState extends State<ReaderScreen> {
   }
 
   Future<void> _prepareTranslationModels() async {
-    for (final language in [TranslateLanguage.english, TranslateLanguage.arabic]) {
-      final code = language.bcpCode;
-      if (!await _modelManager.isModelDownloaded(code)) {
-        await _modelManager.downloadModel(code, isWifiRequired: false);
+    try {
+      for (final language in [TranslateLanguage.english, TranslateLanguage.arabic]) {
+        final code = language.bcpCode;
+        if (!await _modelManager.isModelDownloaded(code)) {
+          await _modelManager.downloadModel(code, isWifiRequired: false);
+        }
       }
-    }
+    } catch (_) {}
   }
+
+  String _cleanText(String value) => value.replaceAll(RegExp(r'\s+'), ' ').replaceAll(RegExp(r'(^|\s)(W\d+|Page\s*\d+)(?=\s|$)', caseSensitive: false), ' ').replaceAll(RegExp(r'\s+'), ' ').trim();
 
   Future<String> _extractCurrentPage() async {
     if (_pageText.containsKey(_page)) return _pageText[_page]!;
     if (!_pdfController.isReady || _page < 1 || _page > _pdfController.pages.length) return '';
     final pageText = await _pdfController.pages[_page - 1].loadText();
-    final text = pageText?.fullText.trim() ?? '';
+    final text = _cleanText(pageText?.fullText ?? '');
     _pageText[_page] = text;
     return text;
   }
 
   Future<void> _translatePage() async {
-    if (_translations.containsKey(_page)) return setState(() {});
+    if (_translations.containsKey(_page)) {
+      setState(() {
+        if (_layout == TranslationLayout.pdfOnly) _layout = TranslationLayout.bottomSheet;
+      });
+      return;
+    }
     setState(() => _busy = true);
     try {
       final text = await _extractCurrentPage();
@@ -534,7 +426,12 @@ class _ReaderScreenState extends State<ReaderScreen> {
         return;
       }
       final translated = await _translator.translateText(text);
-      if (mounted) setState(() => _translations[_page] = translated);
+      if (mounted) {
+        setState(() {
+          _translations[_page] = translated;
+          if (_layout == TranslationLayout.pdfOnly) _layout = TranslationLayout.bottomSheet;
+        });
+      }
     } catch (_) {
       _showMessage('تعذر ترجمة الصفحة. تحقق من الاتصال عند تنزيل نموذج الترجمة لأول مرة.');
     } finally {
@@ -555,6 +452,7 @@ class _ReaderScreenState extends State<ReaderScreen> {
     }
     setState(() {
       _spokenText = text;
+      _spokenStart = 0;
       _spokenEnd = 0;
       _spokenWord = '';
       _speechOffset = 0;
@@ -590,6 +488,7 @@ class _ReaderScreenState extends State<ReaderScreen> {
     _speechOffset = resumeAt + (source.length - remaining.length);
     setState(() {
       _speaking = true;
+      _spokenStart = _speechOffset;
       _spokenEnd = _speechOffset;
       _spokenWord = '';
     });
@@ -613,61 +512,115 @@ class _ReaderScreenState extends State<ReaderScreen> {
     setState(() {
       _speaking = false;
       _spokenWord = '';
+      _spokenStart = 0;
       _spokenEnd = 0;
       _speechOffset = 0;
+      _showTranscript = false;
     });
     await _pdfController.goToPage(pageNumber: nextPage, anchor: PdfPageAnchor.top);
   }
 
   double get _readingProgress => _spokenText.isEmpty ? 0 : (_spokenEnd / _spokenText.length).clamp(0.0, 1.0);
 
-  String get _typedText {
-    if (_spokenText.isEmpty || _spokenEnd <= 0) return '';
-    final end = _spokenEnd > _spokenText.length ? _spokenText.length : _spokenEnd;
-    return _spokenText.substring(0, end).trim();
+  (int, int) _sentenceBounds(int position) {
+    if (_spokenText.isEmpty) return (0, 0);
+    var start = 0;
+    var end = _spokenText.length;
+    final pos = position.clamp(0, _spokenText.length);
+    for (var i = pos - 1; i >= 0; i--) {
+      if ('.!?'.contains(_spokenText[i])) {
+        start = i + 1;
+        break;
+      }
+    }
+    while (start < end && _spokenText[start].trim().isEmpty) start++;
+    for (var i = pos; i < _spokenText.length; i++) {
+      if ('.!?'.contains(_spokenText[i])) {
+        end = i + 1;
+        break;
+      }
+    }
+    return (start, end);
+  }
+
+  Widget _readingCard() {
+    if (_spokenText.isEmpty || (!_speaking && _spokenWord.isEmpty)) return const SizedBox.shrink();
+    final scheme = Theme.of(context).colorScheme;
+    final bounds = _sentenceBounds(_spokenStart);
+    final sentenceStart = bounds.$1;
+    final sentenceEnd = bounds.$2;
+    final wordStart = _spokenStart.clamp(sentenceStart, sentenceEnd);
+    final wordEnd = _spokenEnd.clamp(wordStart, sentenceEnd);
+    final before = _spokenText.substring(sentenceStart, wordStart);
+    final current = wordEnd > wordStart ? _spokenText.substring(wordStart, wordEnd) : (_spokenWord.isEmpty ? '…' : _spokenWord);
+    final after = _spokenText.substring(wordEnd, sentenceEnd);
+    final words = _spokenText.substring(sentenceStart, sentenceEnd).trim().split(RegExp(r'\s+')).where((e) => e.isNotEmpty).toList();
+    final currentNumber = _spokenText.substring(sentenceStart, wordStart).trim().isEmpty ? 1 : _spokenText.substring(sentenceStart, wordStart).trim().split(RegExp(r'\s+')).length + 1;
+
+    return Container(
+      margin: const EdgeInsets.fromLTRB(6, 5, 6, 4),
+      padding: const EdgeInsets.fromLTRB(12, 10, 12, 8),
+      decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(15), border: Border.all(color: scheme.outlineVariant)),
+      child: Directionality(
+        textDirection: TextDirection.ltr,
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Row(children: [Container(width: 7, height: 7, decoration: BoxDecoration(color: scheme.primary, shape: BoxShape.circle)), const SizedBox(width: 7), const Expanded(child: Text('NOW READING', style: TextStyle(fontSize: 10, fontWeight: FontWeight.w800, color: Colors.black54, letterSpacing: .7))), Text(words.isEmpty ? '' : '${currentNumber.clamp(1, words.length)} / ${words.length}', style: const TextStyle(fontSize: 11, color: Colors.black45, fontWeight: FontWeight.w600))]),
+            const SizedBox(height: 6),
+            Text.rich(
+              TextSpan(
+                style: const TextStyle(fontSize: 17, height: 1.55, color: Color(0xFF252633)),
+                children: [
+                  TextSpan(text: before, style: const TextStyle(color: Color(0xFF888B98))),
+                  TextSpan(text: current, style: TextStyle(fontWeight: FontWeight.w800, color: const Color(0xFF3033A8), backgroundColor: scheme.primaryContainer)),
+                  TextSpan(text: after),
+                ],
+              ),
+            ),
+            const SizedBox(height: 7),
+            ClipRRect(borderRadius: BorderRadius.circular(99), child: LinearProgressIndicator(value: _readingProgress, minHeight: 4, backgroundColor: scheme.surfaceContainerHighest)),
+            Align(
+              alignment: Alignment.centerLeft,
+              child: TextButton(
+                style: TextButton.styleFrom(padding: const EdgeInsets.symmetric(horizontal: 0, vertical: 2), minimumSize: Size.zero, tapTargetSize: MaterialTapTargetSize.shrinkWrap),
+                onPressed: () => setState(() => _showTranscript = !_showTranscript),
+                child: Text(_showTranscript ? 'إخفاء النص الكامل' : 'إظهار النص الكامل', style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w700)),
+              ),
+            ),
+            if (_showTranscript)
+              Container(
+                constraints: const BoxConstraints(maxHeight: 92),
+                width: double.infinity,
+                padding: const EdgeInsets.all(9),
+                decoration: BoxDecoration(color: scheme.surfaceContainerHighest, borderRadius: BorderRadius.circular(10)),
+                child: SingleChildScrollView(child: SelectableText(_spokenText, style: const TextStyle(fontSize: 13, height: 1.55))),
+              ),
+          ],
+        ),
+      ),
+    );
   }
 
   Widget _pdfView() {
-    return PdfViewer.file(
-      widget.filePath,
-      controller: _pdfController,
-      initialPageNumber: widget.initialPage,
-      params: PdfViewerParams(
-        margin: 8,
-        pageOverlaysBuilder: (context, pageRect, pdfPage) {
-          if (pdfPage.pageNumber != _page || (!_speaking && _spokenWord.isEmpty)) return const [];
-          return [
-            Positioned(
-              left: pageRect.left + 12,
-              right: pageRect.right > pageRect.left ? MediaQuery.sizeOf(context).width - pageRect.right + 12 : 12,
-              top: pageRect.top + 12,
-              child: IgnorePointer(
-                child: Card(
-                  elevation: 1,
-                  child: Padding(
-                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Row(children: [const Icon(Icons.graphic_eq_rounded, size: 18), const SizedBox(width: 8), Expanded(child: Text(_spokenWord.isEmpty ? 'بدء القراءة...' : _spokenWord, maxLines: 1, overflow: TextOverflow.ellipsis))]),
-                        const SizedBox(height: 6),
-                        LinearProgressIndicator(value: _readingProgress),
-                      ],
-                    ),
-                  ),
-                ),
-              ),
-            ),
-          ];
-        },
-        onViewerReady: (document, controller) {
-          if (mounted) setState(() => _pageCount = controller.pageCount);
-        },
-        onPageChanged: (pageNumber) {
-          if (pageNumber == null) return;
-          setState(() => _page = pageNumber);
-          _savePage(pageNumber);
-        },
+    return Container(
+      color: const Color(0xFFE9ECF2),
+      child: PdfViewer.file(
+        widget.filePath,
+        controller: _pdfController,
+        initialPageNumber: widget.initialPage,
+        params: PdfViewerParams(
+          margin: 3,
+          onViewerReady: (document, controller) {
+            if (mounted) setState(() => _pageCount = controller.pageCount);
+          },
+          onPageChanged: (pageNumber) {
+            if (pageNumber == null) return;
+            setState(() => _page = pageNumber);
+            _savePage(pageNumber);
+          },
+        ),
       ),
     );
   }
@@ -675,13 +628,13 @@ class _ReaderScreenState extends State<ReaderScreen> {
   Widget _translationPane() {
     final text = _translations[_page];
     return Container(
-      color: Theme.of(context).colorScheme.surfaceContainerLowest,
-      padding: const EdgeInsets.all(18),
+      color: Theme.of(context).colorScheme.surface,
+      padding: const EdgeInsets.all(14),
       child: Directionality(
         textDirection: TextDirection.rtl,
         child: text == null
             ? Center(child: _busy ? const CircularProgressIndicator() : FilledButton.icon(onPressed: _translatePage, icon: const Icon(Icons.translate), label: const Text('ترجمة الصفحة الحالية')))
-            : SingleChildScrollView(child: SelectableText(text, style: const TextStyle(fontSize: 18, height: 1.8))),
+            : SingleChildScrollView(child: SelectableText(text, style: const TextStyle(fontSize: 17, height: 1.8))),
       ),
     );
   }
@@ -693,7 +646,7 @@ class _ReaderScreenState extends State<ReaderScreen> {
       case TranslationLayout.translationOnly:
         return _translationPane();
       case TranslationLayout.below:
-        return Column(children: [Expanded(flex: 3, child: _pdfView()), Expanded(flex: 2, child: _translationPane())]);
+        return Column(children: [Expanded(flex: 7, child: _pdfView()), Expanded(flex: 3, child: _translationPane())]);
       case TranslationLayout.sideBySide:
         return Row(children: [Expanded(child: _pdfView()), const VerticalDivider(width: 1), Expanded(child: _translationPane())]);
       case TranslationLayout.bottomSheet:
@@ -703,19 +656,14 @@ class _ReaderScreenState extends State<ReaderScreen> {
             Align(
               alignment: Alignment.bottomCenter,
               child: DraggableScrollableSheet(
-                initialChildSize: .20,
-                minChildSize: .12,
-                maxChildSize: .80,
+                initialChildSize: .18,
+                minChildSize: .10,
+                maxChildSize: .78,
                 builder: (context, controller) => Material(
                   elevation: 8,
-                  borderRadius: const BorderRadius.vertical(top: Radius.circular(22)),
+                  borderRadius: const BorderRadius.vertical(top: Radius.circular(18)),
                   clipBehavior: Clip.antiAlias,
-                  child: Column(
-                    children: [
-                      const Padding(padding: EdgeInsets.only(top: 8), child: SizedBox(width: 42, child: Divider(thickness: 4))),
-                      Expanded(child: SingleChildScrollView(controller: controller, child: SizedBox(height: MediaQuery.sizeOf(context).height * .65, child: _translationPane()))),
-                    ],
-                  ),
+                  child: Column(children: [const Padding(padding: EdgeInsets.only(top: 5), child: SizedBox(width: 36, child: Divider(thickness: 3))), Expanded(child: SingleChildScrollView(controller: controller, child: SizedBox(height: MediaQuery.sizeOf(context).height * .62, child: _translationPane())))]),
                 ),
               ),
             ),
@@ -741,83 +689,51 @@ class _ReaderScreenState extends State<ReaderScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
     final visibleRate = _speechRate * 2;
     return Scaffold(
       appBar: AppBar(
-        title: Text(_pageCount == 0 ? 'PDF Reader' : 'Page $_page / $_pageCount'),
-        actions: [
-          PopupMenuButton<TranslationLayout>(
-            tooltip: 'طريقة عرض الترجمة',
-            icon: const Icon(Icons.view_quilt_outlined),
-            initialValue: _layout,
-            onSelected: (value) => setState(() => _layout = value),
-            itemBuilder: (_) => TranslationLayout.values.map((value) => PopupMenuItem(value: value, child: Text(_layoutName(value)))).toList(),
-          ),
-        ],
+        toolbarHeight: 48,
+        titleSpacing: 0,
+        title: Text(_pageCount == 0 ? 'PDF Reader' : 'الصفحة $_page / $_pageCount', style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w700)),
+        actions: [PopupMenuButton<TranslationLayout>(tooltip: 'طريقة عرض الترجمة', icon: const Icon(Icons.view_quilt_outlined, size: 22), initialValue: _layout, onSelected: (value) => setState(() => _layout = value), itemBuilder: (_) => TranslationLayout.values.map((value) => PopupMenuItem(value: value, child: Text(_layoutName(value)))).toList())],
       ),
-      body: _body(),
+      body: Column(children: [Expanded(child: _body()), _readingCard()]),
       bottomNavigationBar: SafeArea(
-        child: Padding(
-          padding: const EdgeInsets.fromLTRB(8, 4, 8, 8),
+        top: false,
+        child: Container(
+          decoration: BoxDecoration(color: Colors.white, border: Border(top: BorderSide(color: scheme.outlineVariant))),
+          padding: const EdgeInsets.fromLTRB(7, 4, 7, 6),
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              if (_speaking || _typedText.isNotEmpty)
-                Container(
-                  width: double.infinity,
-                  constraints: const BoxConstraints(maxHeight: 82),
-                  margin: const EdgeInsets.only(bottom: 6),
-                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-                  decoration: BoxDecoration(color: Theme.of(context).colorScheme.surfaceContainerHigh, borderRadius: BorderRadius.circular(14)),
-                  child: SingleChildScrollView(reverse: true, child: Text(_typedText.isEmpty ? '...' : _typedText, textDirection: TextDirection.ltr, style: const TextStyle(fontSize: 16, height: 1.4))),
+              Row(
+                children: [
+                  SizedBox(width: 36, height: 34, child: IconButton(padding: EdgeInsets.zero, visualDensity: VisualDensity.compact, onPressed: _speechRate > .25 ? () => _setRate(_speechRate - .05) : null, icon: const Icon(Icons.remove_rounded, size: 20), tooltip: 'أبطأ')),
+                  SizedBox(width: 43, child: Text('${visibleRate.toStringAsFixed(1)}x', textAlign: TextAlign.center, style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w800))),
+                  Expanded(child: Slider(min: .25, max: 1.0, divisions: 15, value: _speechRate, onChanged: (value) => setState(() => _speechRate = value), onChangeEnd: _setRate)),
+                  SizedBox(width: 36, height: 34, child: IconButton(padding: EdgeInsets.zero, visualDensity: VisualDensity.compact, onPressed: _speechRate < 1.0 ? () => _setRate(_speechRate + .05) : null, icon: const Icon(Icons.add_rounded, size: 20), tooltip: 'أسرع')),
+                ],
+              ),
+              const SizedBox(height: 2),
+              Directionality(
+                textDirection: TextDirection.rtl,
+                child: Row(
+                  children: [
+                    Expanded(child: OutlinedButton.icon(onPressed: _page > 1 ? () => _go(_page - 1) : null, icon: const Icon(Icons.chevron_right_rounded, size: 20), label: const Text('السابق'), style: OutlinedButton.styleFrom(minimumSize: const Size(0, 38), padding: const EdgeInsets.symmetric(horizontal: 6)))),
+                    const SizedBox(width: 5),
+                    Expanded(child: FilledButton.tonalIcon(onPressed: _toggleSpeech, icon: Icon(_speaking ? Icons.stop_circle_outlined : Icons.volume_up_outlined, size: 19), label: Text(_speaking ? 'إيقاف' : 'قراءة'), style: FilledButton.styleFrom(minimumSize: const Size(0, 38), padding: const EdgeInsets.symmetric(horizontal: 6)))),
+                    const SizedBox(width: 5),
+                    Expanded(child: FilledButton.icon(onPressed: _busy ? null : _translatePage, icon: _busy ? const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2)) : const Icon(Icons.translate_rounded, size: 18), label: const Text('ترجمة'), style: FilledButton.styleFrom(minimumSize: const Size(0, 38), padding: const EdgeInsets.symmetric(horizontal: 5)))),
+                    const SizedBox(width: 5),
+                    Expanded(child: FilledButton(onPressed: _page < _pageCount ? () => _go(_page + 1) : null, style: FilledButton.styleFrom(minimumSize: const Size(0, 38), padding: const EdgeInsets.symmetric(horizontal: 6)), child: const Row(mainAxisAlignment: MainAxisAlignment.center, mainAxisSize: MainAxisSize.min, children: [Icon(Icons.chevron_left_rounded, size: 20), SizedBox(width: 2), Text('التالي')]))),
+                  ],
                 ),
-              Row(
-                children: [
-                  IconButton(onPressed: _speechRate > .25 ? () => _setRate(_speechRate - .05) : null, icon: const Icon(Icons.remove_circle_outline), tooltip: 'أبطأ'),
-                  SizedBox(width: 46, child: Text('${visibleRate.toStringAsFixed(1)}x', textAlign: TextAlign.center, style: const TextStyle(fontWeight: FontWeight.bold))),
-                  Expanded(child: Slider(min: .25, max: 1.0, divisions: 15, value: _speechRate, label: '${visibleRate.toStringAsFixed(1)}x', onChanged: (value) => setState(() => _speechRate = value), onChangeEnd: _setRate)),
-                  IconButton(onPressed: _speechRate < 1.0 ? () => _setRate(_speechRate + .05) : null, icon: const Icon(Icons.add_circle_outline), tooltip: 'أسرع'),
-                ],
-              ),
-              Wrap(
-                spacing: 4,
-                runSpacing: 2,
-                alignment: WrapAlignment.center,
-                children: [0.5, 0.7, 0.8, 0.9, 1.0, 1.2, 1.5, 2.0].map((speed) => _SpeedPreset(speed: speed)).toList(),
-              ),
-              const SizedBox(height: 4),
-              Row(
-                children: [
-                  IconButton.filledTonal(onPressed: _page > 1 ? () => _go(_page - 1) : null, icon: const Icon(Icons.chevron_left)),
-                  const SizedBox(width: 6),
-                  Expanded(child: FilledButton.tonalIcon(onPressed: _toggleSpeech, icon: Icon(_speaking ? Icons.stop_circle_outlined : Icons.volume_up_outlined), label: Text(_speaking ? 'إيقاف القراءة' : 'قراءة الصفحة'))),
-                  const SizedBox(width: 6),
-                  Expanded(child: FilledButton.icon(onPressed: _busy ? null : _translatePage, icon: const Icon(Icons.translate), label: const Text('ترجمة'))),
-                  const SizedBox(width: 6),
-                  IconButton.filledTonal(onPressed: _page < _pageCount ? () => _go(_page + 1) : null, icon: const Icon(Icons.chevron_right)),
-                ],
               ),
             ],
           ),
         ),
       ),
-    );
-  }
-}
-
-class _SpeedPreset extends StatelessWidget {
-  const _SpeedPreset({required this.speed});
-  final double speed;
-
-  @override
-  Widget build(BuildContext context) {
-    final reader = context.findAncestorStateOfType<_ReaderScreenState>();
-    final selected = reader != null && ((reader._speechRate * 2) - speed).abs() < .01;
-    return ChoiceChip(
-      label: Text('${speed.toStringAsFixed(1)}x'),
-      selected: selected,
-      visualDensity: VisualDensity.compact,
-      onSelected: reader == null ? null : (_) => reader._setRate(speed / 2),
     );
   }
 }
