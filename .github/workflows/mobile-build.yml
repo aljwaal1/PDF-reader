@@ -5,6 +5,9 @@ on:
     branches: [main]
   workflow_dispatch:
 
+permissions:
+  contents: write
+
 jobs:
   android:
     runs-on: ubuntu-latest
@@ -22,10 +25,25 @@ jobs:
       - run: flutter pub get
       - run: flutter analyze
       - run: flutter build apk --debug
+      - name: Prepare direct-download APK
+        run: cp build/app/outputs/flutter-apk/app-debug.apk PDF-Reader.apk
       - uses: actions/upload-artifact@v4
         with:
           name: pdf-reader-android-debug
-          path: build/app/outputs/flutter-apk/app-debug.apk
+          path: PDF-Reader.apk
+      - name: Publish stable Android download
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          if ! gh release view android-latest >/dev/null 2>&1; then
+            gh release create android-latest PDF-Reader.apk \
+              --title "PDF Reader - Latest Android" \
+              --notes "Latest tested Android build. Updated automatically after a successful build." \
+              --latest
+          else
+            gh release upload android-latest PDF-Reader.apk --clobber
+            gh release edit android-latest --latest
+          fi
 
   ios:
     runs-on: macos-latest
