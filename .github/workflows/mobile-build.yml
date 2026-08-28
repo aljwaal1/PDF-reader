@@ -30,6 +30,8 @@ jobs:
         run: python3 tool/android_flexible_reader_fix_patch.py
       - name: Apply marker-style drag highlighter
         run: python3 tool/android_highlighter_mode_patch.py
+      - name: Fix marker icon compatibility
+        run: python3 tool/android_highlighter_icon_fix.py
       - run: flutter pub get
       - run: flutter analyze
       - run: flutter build apk --debug
