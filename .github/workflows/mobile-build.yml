@@ -54,6 +54,37 @@ jobs:
           channel: stable
       - name: Generate platform projects
         run: flutter create . --platforms=android,ios --project-name pdf_reader
+      - name: Set iOS 15.5 deployment target
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+
+          podfile = Path('ios/Podfile')
+          text = podfile.read_text(encoding='utf-8')
+          lines = text.splitlines()
+          replaced = False
+          for i, line in enumerate(lines):
+              if line.strip().startswith('platform :ios') or line.strip().startswith('# platform :ios'):
+                  lines[i] = "platform :ios, '15.5'"
+                  replaced = True
+                  break
+          if not replaced:
+              lines.insert(0, "platform :ios, '15.5'")
+          podfile.write_text('\n'.join(lines) + '\n', encoding='utf-8')
+
+          project = Path('ios/Runner.xcodeproj/project.pbxproj')
+          p = project.read_text(encoding='utf-8')
+          import re
+          p = re.sub(r'IPHONEOS_DEPLOYMENT_TARGET = [0-9.]+;', 'IPHONEOS_DEPLOYMENT_TARGET = 15.5;', p)
+          project.write_text(p, encoding='utf-8')
+
+          plist = Path('ios/Flutter/AppFrameworkInfo.plist')
+          q = plist.read_text(encoding='utf-8')
+          q = re.sub(r'(<key>MinimumOSVersion</key>\s*<string>)[^<]+(</string>)', r'\g<1>15.5\2', q)
+          plist.write_text(q, encoding='utf-8')
+          PY
+          grep -n "platform :ios" ios/Podfile
+          grep -n "IPHONEOS_DEPLOYMENT_TARGET" ios/Runner.xcodeproj/project.pbxproj | head
       - run: flutter pub get
       - run: flutter analyze
       - name: Build iOS without code signing
