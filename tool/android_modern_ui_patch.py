@@ -6,7 +6,42 @@ s = p.read_text(encoding='utf-8')
 # Refine the existing visual language only: calmer Material 3 palette and surfaces.
 s = s.replace(
     "        colorScheme: ColorScheme.fromSeed(seedColor: const Color(0xFF5B5FEF)),\n        scaffoldBackgroundColor: const Color(0xFFF5F6FA),\n        cardTheme: const CardThemeData(margin: EdgeInsets.zero),",
-    "        colorScheme: ColorScheme.fromSeed(seedColor: const Color(0xFF4658A9), brightness: Brightness.light),\n        scaffoldBackgroundColor: const Color(0xFFF7F8FB),\n        appBarTheme: const AppBarTheme(backgroundColor: Colors.white, surfaceTintColor: Colors.transparent, elevation: 0, scrolledUnderElevation: 0.5),\n        cardTheme: const CardThemeData(margin: EdgeInsets.zero, elevation: 0),\n        dividerTheme: const DividerThemeData(color: Color(0xFFE5E7EE), thickness: 1),",
+    "        colorScheme: ColorScheme.fromSeed(seedColor: const Color(0xFF4658A9), brightness: Brightness.light),\n        scaffoldBackgroundColor: const Color(0xFFF7F8FB),\n        appBarTheme: const AppBarTheme(backgroundColor: Colors.white, surfaceTintColor: Colors.transparent, elevation: 0, scrolledUnderElevation: 0.5),\n        cardTheme: const CardThemeData(margin: EdgeInsets.zero, elevation: 0),\n        dividerTheme: const DividerThemeData(color: Color(0xFFE5E7EE), thickness: 1),\n        filledButtonTheme: FilledButtonThemeData(style: FilledButton.styleFrom(shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)))),\n        outlinedButtonTheme: OutlinedButtonThemeData(style: OutlinedButton.styleFrom(shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)))),",
+    1,
+)
+
+# Make first launch/loading less visually abrupt without changing startup behavior.
+s = s.replace(
+    "          return const Scaffold(body: Center(child: CircularProgressIndicator()));",
+    "          return const Scaffold(body: Center(child: SizedBox(width: 28, height: 28, child: CircularProgressIndicator(strokeWidth: 2.4))));",
+    1,
+)
+
+# Calm the home screen: same actions and information, less visual duplication/noise.
+s = s.replace(
+    "                  Container(width: 46, height: 46, decoration: BoxDecoration(color: scheme.primaryContainer, borderRadius: BorderRadius.circular(15)), child: Icon(Icons.auto_stories_rounded, color: scheme.primary)),",
+    "                  Container(width: 44, height: 44, decoration: BoxDecoration(color: scheme.primaryContainer.withValues(alpha: .72), borderRadius: BorderRadius.circular(13)), child: Icon(Icons.auto_stories_rounded, size: 23, color: scheme.primary)),",
+    1,
+)
+s = s.replace(
+    "                  const Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [Text('قارئ الكتب', style: TextStyle(fontSize: 23, fontWeight: FontWeight.w900)), SizedBox(height: 2), Text('اقرأ • استمع • ترجم', style: TextStyle(color: Colors.black54, fontWeight: FontWeight.w500))])),",
+    "                  const Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [Text('قارئ الكتب', style: TextStyle(fontSize: 21, fontWeight: FontWeight.w800, letterSpacing: -.2)), SizedBox(height: 2), Text('اقرأ • استمع • ترجم', style: TextStyle(fontSize: 12.5, color: Colors.black54, fontWeight: FontWeight.w500))])),",
+    1,
+)
+s = s.replace(
+    "                    decoration: BoxDecoration(gradient: LinearGradient(colors: [scheme.primaryContainer, scheme.secondaryContainer]), borderRadius: BorderRadius.circular(24)),",
+    "                    decoration: BoxDecoration(color: Colors.white, border: Border.all(color: scheme.outlineVariant), borderRadius: BorderRadius.circular(20)),",
+    1,
+)
+s = s.replace("                  borderRadius: BorderRadius.circular(24),", "                  borderRadius: BorderRadius.circular(20),", 1)
+s = s.replace(
+    "              const SizedBox(height: 24),\n              Text('كل ما تحتاجه أثناء القراءة', style: Theme.of(context).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w800)),\n              const SizedBox(height: 10),\n              Wrap(spacing: 7, runSpacing: 7, children: [_featureChip(Icons.volume_up_rounded, 'قراءة صوتية'), _featureChip(Icons.translate_rounded, 'ترجمة عربية'), _featureChip(Icons.speed_rounded, 'سرعة مرنة'), _featureChip(Icons.visibility_rounded, 'متابعة الكلمة')]),",
+    "              const SizedBox(height: 16),",
+    1,
+)
+s = s.replace(
+    "      floatingActionButton: _lastBook == null ? null : FloatingActionButton.extended(onPressed: _importing ? null : _pickPdf, icon: const Icon(Icons.add_rounded), label: const Text('كتاب جديد')),\n",
+    "",
     1,
 )
 
@@ -27,6 +62,50 @@ s = s.replace(
 )
 s = s.replace("                  elevation: 8,", "                  elevation: 3,", 1)
 s = s.replace("borderRadius: const BorderRadius.vertical(top: Radius.circular(18))", "borderRadius: const BorderRadius.vertical(top: Radius.circular(22))", 1)
+
+# Runtime hardening for existing TTS/PDF behavior: clear stale highlight and handle engine errors.
+old_completion = '''    _tts.setCompletionHandler(() {
+      if (mounted) setState(() => _speaking = false);
+    });
+'''
+new_completion = '''    _tts.setCompletionHandler(() {
+      _clearWordHighlight();
+      if (mounted) {
+        setState(() {
+          _speaking = false;
+          _spokenWord = '';
+        });
+      }
+    });
+    _tts.setErrorHandler((message) {
+      _clearWordHighlight();
+      if (!mounted) return;
+      setState(() {
+        _speaking = false;
+        _spokenWord = '';
+      });
+      _showMessage('تعذر تشغيل القراءة الصوتية. تحقق من إعدادات تحويل النص إلى كلام في الهاتف.');
+    });
+    _tts.setCancelHandler(() {
+      _clearWordHighlight();
+      if (mounted) {
+        setState(() {
+          _speaking = false;
+          _spokenWord = '';
+        });
+      }
+    });
+'''
+if old_completion not in s:
+    raise SystemExit('TTS completion marker not found')
+s = s.replace(old_completion, new_completion, 1)
+
+# Prevent a late PDF callback from touching a disposed screen.
+s = s.replace(
+    "          onPageChanged: (pageNumber) {\n            if (pageNumber == null) return;\n            setState(() => _page = pageNumber);",
+    "          onPageChanged: (pageNumber) {\n            if (pageNumber == null || !mounted) return;\n            setState(() => _page = pageNumber);",
+    1,
+)
 
 # Cleaner, more information-dense top bar.
 old_appbar = '''      appBar: AppBar(
@@ -169,4 +248,4 @@ dock = '''      bottomNavigationBar: SafeArea(
 s = s[:start] + dock + s[end:]
 
 p.write_text(s, encoding='utf-8')
-print('Applied focused modern Android UI refinement')
+print('Applied hardened focused Android UI refinement')
