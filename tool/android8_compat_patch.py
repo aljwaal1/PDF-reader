@@ -13,12 +13,12 @@ insert = '''  Future<void> _initTts() async {
       if (engine is String && engine.isNotEmpty) await _tts.setEngine(engine);
       var languageResult = await _tts.setLanguage('en-US');
       if (languageResult != 1) languageResult = await _tts.setLanguage('en-GB');
-      if (languageResult != 1) await _tts.setLanguage('en');
+      if (languageResult != 1) languageResult = await _tts.setLanguage('en');
       await _tts.setSpeechRate(_speechRate);
       await _tts.setVolume(1.0);
       await _tts.setPitch(1.0);
       await _tts.setQueueMode(0);
-      _ttsReady = true;
+      _ttsReady = languageResult == 1;
     } catch (_) {
       _ttsReady = false;
     }
@@ -41,11 +41,15 @@ old_extract = '''  Future<String> _extractCurrentPage() async {
 new_extract = '''  Future<String> _extractCurrentPage() async {
     if (_pageText.containsKey(_page)) return _pageText[_page]!;
     if (!_pdfController.isReady || _page < 1 || _page > _pdfController.pages.length) return '';
-    final pageText = await _pdfController.pages[_page - 1].loadStructuredText();
-    final text = pageText.fullText;
-    _structuredText[_page] = pageText;
-    _pageText[_page] = text;
-    return text;
+    try {
+      final pageText = await _pdfController.pages[_page - 1].loadStructuredText();
+      final text = pageText.fullText;
+      _structuredText[_page] = pageText;
+      _pageText[_page] = text;
+      return text;
+    } catch (_) {
+      return '';
+    }
   }
 '''
 if old_extract not in s:
@@ -59,7 +63,7 @@ if needle2 not in s:
 s = s.replace(needle2, repl2, 1)
 
 needle = "  Future<void> _toggleSpeech() async {\n    if (_speaking) {"
-repl = "  Future<void> _toggleSpeech() async {\n    if (!_ttsReady) await _initTts();\n    if (_speaking) {"
+repl = "  Future<void> _toggleSpeech() async {\n    if (!_ttsReady) await _initTts();\n    if (!_ttsReady) {\n      _showMessage('لا يتوفر صوت إنجليزي جاهز على هذا الهاتف. تحقق من إعدادات تحويل النص إلى كلام (TTS).');\n      return;\n    }\n    if (_speaking) {"
 if needle not in s:
     raise SystemExit('toggleSpeech marker not found')
 s = s.replace(needle, repl, 1)
@@ -110,7 +114,7 @@ if old_progress not in s:
 s = s.replace(old_progress, new_progress, 1)
 
 needle = "    await _tts.setSpeechRate(_speechRate);\n    await _tts.speak(text);"
-repl = "    await _tts.setSpeechRate(_speechRate);\n    final result = await _tts.speak(text, focus: true);\n    if (result != 1 && mounted) {\n      setState(() => _speaking = false);\n      _showMessage('تعذر تشغيل الصوت. تأكد من وجود محرك تحويل النص إلى كلام (TTS) وتفعيل صوت إنجليزي في إعدادات الهاتف.');\n    }"
+repl = "    await _tts.setSpeechRate(_speechRate);\n    final result = await _tts.speak(text, focus: true);\n    if (result != 1 && mounted) {\n      setState(() => _speaking = false);\n      await _clearWordHighlight();\n      _showMessage('تعذر تشغيل الصوت. تأكد من وجود محرك تحويل النص إلى كلام (TTS) وتفعيل صوت إنجليزي في إعدادات الهاتف.');\n    }"
 if needle not in s:
     raise SystemExit('speak marker not found')
 s = s.replace(needle, repl, 1)
@@ -123,7 +127,7 @@ s = s.replace(
 )
 s = s.replace(
     '    await _tts.stop();\n    setState(() {\n      _speaking = false;',
-    '    await _tts.stop();\n    await _clearWordHighlight();\n    setState(() {\n      _speaking = false;',
+    '    await _tts.stop();\n    await _clearWordHighlight();\n    if (!mounted) return;\n    setState(() {\n      _speaking = false;',
     1,
 )
 
@@ -147,55 +151,15 @@ compact = '''      bottomNavigationBar: SafeArea(
             textDirection: TextDirection.rtl,
             child: Row(
               children: [
-                Expanded(
-                  child: OutlinedButton.icon(
-                    onPressed: _page > 1 ? () => _go(_page - 1) : null,
-                    icon: const Icon(Icons.chevron_right_rounded, size: 18),
-                    label: const Text('السابق'),
-                    style: OutlinedButton.styleFrom(minimumSize: const Size(0, 40), padding: const EdgeInsets.symmetric(horizontal: 4)),
-                  ),
-                ),
+                Expanded(child: OutlinedButton.icon(onPressed: _page > 1 ? () => _go(_page - 1) : null, icon: const Icon(Icons.chevron_right_rounded, size: 18), label: const Text('السابق'), style: OutlinedButton.styleFrom(minimumSize: const Size(0, 40), padding: const EdgeInsets.symmetric(horizontal: 4)))),
                 const SizedBox(width: 4),
-                Expanded(
-                  child: FilledButton.tonalIcon(
-                    onPressed: _toggleSpeech,
-                    icon: Icon(_speaking ? Icons.stop_rounded : Icons.play_arrow_rounded, size: 19),
-                    label: Text(_speaking ? 'إيقاف' : 'قراءة'),
-                    style: FilledButton.styleFrom(minimumSize: const Size(0, 40), padding: const EdgeInsets.symmetric(horizontal: 4)),
-                  ),
-                ),
+                Expanded(child: FilledButton.tonalIcon(onPressed: _toggleSpeech, icon: Icon(_speaking ? Icons.stop_rounded : Icons.play_arrow_rounded, size: 19), label: Text(_speaking ? 'إيقاف' : 'قراءة'), style: FilledButton.styleFrom(minimumSize: const Size(0, 40), padding: const EdgeInsets.symmetric(horizontal: 4)))),
                 const SizedBox(width: 4),
-                SizedBox(
-                  width: 62,
-                  child: OutlinedButton(
-                    onPressed: () {
-                      const rates = <double>[.25, .35, .4, .45, .5, .6, .75, 1.0];
-                      var index = rates.indexWhere((value) => (value - _speechRate).abs() < .001);
-                      index = index < 0 ? 3 : (index + 1) % rates.length;
-                      _setRate(rates[index]);
-                    },
-                    style: OutlinedButton.styleFrom(minimumSize: const Size(0, 40), padding: EdgeInsets.zero),
-                    child: Text('${visibleRate.toStringAsFixed(1)}x', style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 12)),
-                  ),
-                ),
+                SizedBox(width: 62, child: OutlinedButton(onPressed: () { const rates = <double>[.25, .35, .4, .45, .5, .6, .75, 1.0]; var index = rates.indexWhere((value) => (value - _speechRate).abs() < .001); index = index < 0 ? 3 : (index + 1) % rates.length; _setRate(rates[index]); }, style: OutlinedButton.styleFrom(minimumSize: const Size(0, 40), padding: EdgeInsets.zero), child: Text('${visibleRate.toStringAsFixed(1)}x', style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 12)))),
                 const SizedBox(width: 4),
-                SizedBox(
-                  width: 48,
-                  child: FilledButton.tonal(
-                    onPressed: _busy ? null : _translatePage,
-                    style: FilledButton.styleFrom(minimumSize: const Size(0, 40), padding: EdgeInsets.zero),
-                    child: _busy ? const SizedBox(width: 15, height: 15, child: CircularProgressIndicator(strokeWidth: 2)) : const Icon(Icons.translate_rounded, size: 18),
-                  ),
-                ),
+                SizedBox(width: 48, child: FilledButton.tonal(onPressed: _busy ? null : _translatePage, style: FilledButton.styleFrom(minimumSize: const Size(0, 40), padding: EdgeInsets.zero), child: _busy ? const SizedBox(width: 15, height: 15, child: CircularProgressIndicator(strokeWidth: 2)) : const Icon(Icons.translate_rounded, size: 18))),
                 const SizedBox(width: 4),
-                Expanded(
-                  child: FilledButton.icon(
-                    onPressed: _page < _pageCount ? () => _go(_page + 1) : null,
-                    icon: const Icon(Icons.chevron_left_rounded, size: 18),
-                    label: const Text('التالي'),
-                    style: FilledButton.styleFrom(minimumSize: const Size(0, 40), padding: const EdgeInsets.symmetric(horizontal: 4)),
-                  ),
-                ),
+                Expanded(child: FilledButton.icon(onPressed: _page < _pageCount ? () => _go(_page + 1) : null, icon: const Icon(Icons.chevron_left_rounded, size: 18), label: const Text('التالي'), style: FilledButton.styleFrom(minimumSize: const Size(0, 40), padding: const EdgeInsets.symmetric(horizontal: 4)))),
               ],
             ),
           ),
@@ -205,4 +169,4 @@ compact = '''      bottomNavigationBar: SafeArea(
 s = s[:start] + compact + s[end:]
 
 p.write_text(s, encoding='utf-8')
-print('Applied Android 8 + inline PDF word highlight + compact controls patch')
+print('Applied hardened Android 8 reader runtime patch')
