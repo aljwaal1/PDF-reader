@@ -17,6 +17,8 @@ jobs:
         run: flutter create . --platforms=android,ios --project-name pdf_reader
       - name: Apply Android 8 compatibility fixes
         run: python3 tool/android8_compat_patch.py
+      - name: Apply focused modern Android UI
+        run: python3 tool/android_modern_ui_patch.py
       - run: flutter pub get
       - run: flutter analyze
       - run: flutter build apk --debug
