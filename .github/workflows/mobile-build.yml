@@ -32,14 +32,16 @@ jobs:
         run: python3 tool/android_highlighter_mode_patch.py
       - name: Fix marker icon compatibility
         run: python3 tool/android_highlighter_icon_fix.py
+      - name: Apply Android performance hardening
+        run: python3 tool/android_performance_hardening_patch.py
       - run: flutter pub get
       - run: flutter analyze
-      - run: flutter build apk --debug
+      - run: flutter build apk --release
       - name: Prepare direct-download APK
-        run: cp build/app/outputs/flutter-apk/app-debug.apk PDF-Reader.apk
+        run: cp build/app/outputs/flutter-apk/app-release.apk PDF-Reader.apk
       - uses: actions/upload-artifact@v4
         with:
-          name: pdf-reader-android-debug
+          name: pdf-reader-android-release
           path: PDF-Reader.apk
       - name: Publish stable Android download
         env:
@@ -48,7 +50,7 @@ jobs:
           if ! gh release view android-latest >/dev/null 2>&1; then
             gh release create android-latest PDF-Reader.apk \
               --title "PDF Reader - Latest Android" \
-              --notes "Latest tested Android build. Updated automatically after a successful build." \
+              --notes "Latest tested Android release build. Updated automatically after a successful build." \
               --latest
           else
             gh release upload android-latest PDF-Reader.apk --clobber
