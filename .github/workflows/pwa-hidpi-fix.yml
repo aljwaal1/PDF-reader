@@ -1,24 +1,19 @@
-name: Apply Reader Audit Fixes
+name: Reader Validation
 
 on:
   push:
     branches: [main]
     paths:
-      - 'tool/release_audit_fix.py'
+      - 'lib/main.dart'
+      - 'pwa/index.html'
+      - 'pwa/sw.js'
       - '.github/workflows/pwa-hidpi-fix.yml'
 
-permissions:
-  contents: write
-
 jobs:
-  audit-fix:
+  validate:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-        with:
-          fetch-depth: 0
-      - name: Apply audited reader fixes
-        run: python3 tool/release_audit_fix.py
       - name: Validate PWA JavaScript syntax
         run: |
           python3 - <<'PY'
@@ -31,14 +26,27 @@ jobs:
           Path('/tmp/pwa-reader.mjs').write_text('\n'.join(scripts), encoding='utf-8')
           PY
           node --check /tmp/pwa-reader.mjs
-      - name: Commit audited reader source
+      - name: Validate reader invariants
         run: |
-          if git diff --quiet -- lib/main.dart; then
-            echo "No audited source changes needed"
-            exit 0
-          fi
-          git config user.name "github-actions[bot]"
-          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add lib/main.dart
-          git commit -m "Harden reader lifecycle and translation logic"
-          git push
+          python3 - <<'PY'
+          from pathlib import Path
+          dart = Path('lib/main.dart').read_text(encoding='utf-8')
+          pwa = Path('pwa/index.html').read_text(encoding='utf-8')
+          checks = {
+              'Android speech run token': '_speechRunToken' in dart,
+              'Android page-bound translation': 'final targetPage = _page;' in dart,
+              'Android auto next': '_autoNext' in dart,
+              'PWA translation queue': 'translationQueue' in pwa,
+              'PWA reading position': 'readingPositionKey' in pwa,
+              'PWA auto next': 'autoNext' in pwa,
+          }
+          failed = [name for name, ok in checks.items() if not ok]
+          if failed:
+              raise SystemExit('Missing reader invariants: ' + ', '.join(failed))
+          if dart.count('_saveTranslation(_page, translated);') > 1:
+              raise SystemExit('Duplicate Android translation save detected')
+          marker = 'if (_currentSentenceTranslation.isNotEmpty) ...['
+          if dart.count(marker) > 1:
+              raise SystemExit('Duplicate current-sentence translation card detected')
+          print('Reader invariants validated')
+          PY
