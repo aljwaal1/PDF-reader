@@ -368,9 +368,11 @@ class _ReaderScreenState extends State<ReaderScreen> {
   int _resumeOffset = 0;
   int _lastSentenceStart = -1;
   bool _autoNext = true;
-  bool _translatingSentence = false;
+  int _speechRunToken = 0;
+  Future<void> _sentenceTranslationQueue = Future<void>.value();
   String _currentSentenceTranslation = '';
   final Map<int, Map<int, String>> _sentenceTranslations = {};
+  Future<void>? _translationSetup;
   TranslationLayout _layout = TranslationLayout.pdfOnly;
 
   @override
@@ -379,9 +381,6 @@ class _ReaderScreenState extends State<ReaderScreen> {
     _page = widget.initialPage;
     _tts.setLanguage('en-US');
     _tts.setSpeechRate(_speechRate);
-    _tts.setCompletionHandler(() {
-      _handleSpeechComplete();
-    });
     _tts.setProgressHandler((text, start, end, word) {
       if (!mounted) return;
       final absoluteStart = (_speechOffset + start).clamp(0, _spokenText.length);
@@ -395,7 +394,7 @@ class _ReaderScreenState extends State<ReaderScreen> {
       _saveReadingOffset(_page, absoluteStart);
       _translateSentenceAt(absoluteStart);
     });
-    _prepareTranslationModels();
+    _translationSetup = _prepareTranslationModels();
   }
 
   Future<void> _prepareTranslationModels() async {
@@ -411,12 +410,13 @@ class _ReaderScreenState extends State<ReaderScreen> {
 
   String _cleanText(String value) => value.replaceAll(RegExp(r'\s+'), ' ').replaceAll(RegExp(r'(^|\s)(W\d+|Page\s*\d+)(?=\s|$)', caseSensitive: false), ' ').replaceAll(RegExp(r'\s+'), ' ').trim();
 
-  Future<String> _extractCurrentPage() async {
-    if (_pageText.containsKey(_page)) return _pageText[_page]!;
-    if (!_pdfController.isReady || _page < 1 || _page > _pdfController.pages.length) return '';
-    final pageText = await _pdfController.pages[_page - 1].loadText();
+  Future<String> _extractCurrentPage({int? pageNumber}) async {
+    final targetPage = pageNumber ?? _page;
+    if (_pageText.containsKey(targetPage)) return _pageText[targetPage]!;
+    if (!_pdfController.isReady || targetPage < 1 || targetPage > _pdfController.pages.length) return '';
+    final pageText = await _pdfController.pages[targetPage - 1].loadText();
     final text = _cleanText(pageText?.fullText ?? '');
-    _pageText[_page] = text;
+    _pageText[targetPage] = text;
     return text;
   }
 
@@ -459,37 +459,42 @@ class _ReaderScreenState extends State<ReaderScreen> {
     });
   }
 
-  Future<void> _translateSentenceAt(int position) async {
-    if (_spokenText.isEmpty || _translatingSentence) return;
+  Future<void> _translateSentenceAt(int position) {
+    if (_spokenText.isEmpty) return Future<void>.value();
+    final sourceText = _spokenText;
+    final page = _page;
     final bounds = _sentenceBounds(position);
-    final start = bounds.$1;
-    final end = bounds.$2;
-    if (end <= start || start == _lastSentenceStart) return;
-    final sentence = _spokenText.substring(start, end).trim();
-    if (sentence.isEmpty) return;
-    _lastSentenceStart = start;
-    _translatingSentence = true;
-    try {
-      final translated = await _translator.translateText(sentence);
-      final pageMap = _sentenceTranslations.putIfAbsent(_page, () => <int, String>{});
-      pageMap[start] = translated;
-      final keys = pageMap.keys.toList()..sort();
-      final full = keys.map((key) => pageMap[key]!).join('\n\n');
-      if (!mounted) return;
-      setState(() {
-        _currentSentenceTranslation = translated;
-        _translations[_page] = full;
-      });
-      await _saveTranslation(_page, full);
-    } catch (_) {
-      // Keep reading even if one sentence cannot be translated.
-    } finally {
-      _translatingSentence = false;
-    }
+    final sentenceStart = bounds.$1;
+    final sentenceEnd = bounds.$2;
+    if (sentenceEnd <= sentenceStart || sentenceStart == _lastSentenceStart) return Future<void>.value();
+    final sentence = sourceText.substring(sentenceStart, sentenceEnd).trim();
+    if (sentence.isEmpty) return Future<void>.value();
+    _lastSentenceStart = sentenceStart;
+    _sentenceTranslationQueue = _sentenceTranslationQueue.then((_) async {
+      try {
+        await (_translationSetup ??= _prepareTranslationModels());
+        final translated = await _translator.translateText(sentence);
+        final pageMap = _sentenceTranslations.putIfAbsent(page, () => <int, String>{});
+        pageMap[sentenceStart] = translated;
+        final keys = pageMap.keys.toList()..sort();
+        final full = keys.map((key) => pageMap[key]!).join('\n\n');
+        await _saveTranslation(page, full);
+        if (!mounted || page != _page || sourceText != _spokenText) return;
+        setState(() {
+          _currentSentenceTranslation = translated;
+          _translations[page] = full;
+        });
+      } catch (_) {
+        // Speech must never depend on translation availability.
+      }
+    });
+    return _sentenceTranslationQueue;
   }
 
   Future<void> _startSpeechFrom(int offset) async {
-    final text = await _extractCurrentPage();
+    final pageAtStart = _page;
+    final text = await _extractCurrentPage(pageNumber: pageAtStart);
+    if (!mounted || pageAtStart != _page) return;
     if (text.isEmpty) {
       _showMessage('لا يوجد نص إنجليزي قابل للقراءة في هذه الصفحة.');
       return;
@@ -499,7 +504,7 @@ class _ReaderScreenState extends State<ReaderScreen> {
     final remaining = source.trimLeft();
     final actualOffset = safeOffset + (source.length - remaining.length);
     if (remaining.isEmpty) return;
-    if (!mounted) return;
+    final runToken = ++_speechRunToken;
     setState(() {
       _spokenText = text;
       _speechOffset = actualOffset;
@@ -510,47 +515,57 @@ class _ReaderScreenState extends State<ReaderScreen> {
       _speaking = true;
       _lastSentenceStart = -1;
     });
+    await _tts.setLanguage('en-US');
     await _tts.setSpeechRate(_speechRate);
+    await _tts.awaitSpeakCompletion(true);
     _translateSentenceAt(actualOffset);
-    await _tts.speak(remaining);
+    final result = await _tts.speak(remaining);
+    if (!mounted || runToken != _speechRunToken || pageAtStart != _page) return;
+    if (result == 1) {
+      await _handleSpeechComplete(pageAtStart, runToken);
+    } else {
+      setState(() => _speaking = false);
+      _showMessage('تعذر تشغيل الصوت. تحقق من إعدادات تحويل النص إلى كلام (TTS).');
+    }
   }
 
-  Future<void> _handleSpeechComplete() async {
-    if (!mounted) return;
-    final completedPage = _page;
+  Future<void> _handleSpeechComplete(int completedPage, int runToken) async {
+    if (!mounted || runToken != _speechRunToken || completedPage != _page) return;
     await _clearReadingOffset(completedPage);
+    if (!mounted || runToken != _speechRunToken) return;
     setState(() {
       _speaking = false;
       _resumeOffset = 0;
     });
     if (_autoNext && completedPage < _pageCount) {
-      await _go(completedPage + 1, keepAutoReading: true);
-      await Future<void>.delayed(const Duration(milliseconds: 220));
+      await _go(completedPage + 1);
+      await Future<void>.delayed(const Duration(milliseconds: 180));
       if (mounted && _page == completedPage + 1) await _startSpeechFrom(_resumeOffset);
     }
   }
 
   Future<void> _translatePage() async {
-    if (_translations.containsKey(_page)) {
-      setState(() {
+    final targetPage = _page;
+    if (_translations.containsKey(targetPage)) {
+      if (mounted) setState(() {
         if (_layout == TranslationLayout.pdfOnly) _layout = TranslationLayout.bottomSheet;
       });
       return;
     }
     setState(() => _busy = true);
     try {
-      final text = await _extractCurrentPage();
+      final text = await _extractCurrentPage(pageNumber: targetPage);
       if (text.isEmpty) {
         _showMessage('لم يتم العثور على نص قابل للاستخراج في هذه الصفحة.');
         return;
       }
+      await (_translationSetup ??= _prepareTranslationModels());
       final translated = await _translator.translateText(text);
+      await _saveTranslation(targetPage, translated);
       if (mounted) {
         setState(() {
-          _translations[_page] = translated;
-          if (_layout == TranslationLayout.pdfOnly) _layout = TranslationLayout.bottomSheet;
-          _saveTranslation(_page, translated);
-          _saveTranslation(_page, translated);
+          _translations[targetPage] = translated;
+          if (_page == targetPage && _layout == TranslationLayout.pdfOnly) _layout = TranslationLayout.bottomSheet;
         });
       }
     } catch (_) {
@@ -563,6 +578,7 @@ class _ReaderScreenState extends State<ReaderScreen> {
   Future<void> _toggleSpeech() async {
     if (_speaking) {
       final resume = _restartOffset();
+      ++_speechRunToken;
       await _tts.stop();
       await _saveReadingOffset(_page, resume);
       if (mounted) setState(() {
@@ -593,19 +609,10 @@ class _ReaderScreenState extends State<ReaderScreen> {
       await _tts.setSpeechRate(rate);
       return;
     }
+    ++_speechRunToken;
     await _tts.stop();
-    await _tts.setSpeechRate(rate);
     if (!mounted || resumeAt >= _spokenText.length) return;
-    final source = _spokenText.substring(resumeAt);
-    final remaining = source.trimLeft();
-    _speechOffset = resumeAt + (source.length - remaining.length);
-    setState(() {
-      _speaking = true;
-      _spokenStart = _speechOffset;
-      _spokenEnd = _speechOffset;
-      _spokenWord = '';
-    });
-    await _tts.speak(remaining);
+    await _startSpeechFrom(resumeAt);
   }
 
   Future<void> _savePage(int page) async {
@@ -619,8 +626,9 @@ class _ReaderScreenState extends State<ReaderScreen> {
     ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(message)));
   }
 
-  Future<void> _go(int nextPage, {bool keepAutoReading = false}) async {
+  Future<void> _go(int nextPage) async {
     if (!_pdfController.isReady || nextPage < 1 || nextPage > _pageCount) return;
+    ++_speechRunToken;
     await _tts.stop();
     setState(() {
       _speaking = false;
@@ -709,18 +717,6 @@ class _ReaderScreenState extends State<ReaderScreen> {
                 ),
               ),
             ],
-            if (_currentSentenceTranslation.isNotEmpty) ...[
-              const SizedBox(height: 8),
-              Directionality(
-                textDirection: TextDirection.rtl,
-                child: Container(
-                  width: double.infinity,
-                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
-                  decoration: BoxDecoration(color: scheme.secondaryContainer.withValues(alpha: .55), borderRadius: BorderRadius.circular(10)),
-                  child: Text(_currentSentenceTranslation, style: const TextStyle(fontSize: 15, height: 1.55, fontWeight: FontWeight.w600)),
-                ),
-              ),
-            ],
             const SizedBox(height: 7),
             ClipRRect(borderRadius: BorderRadius.circular(99), child: LinearProgressIndicator(value: _readingProgress, minHeight: 4, backgroundColor: scheme.surfaceContainerHighest)),
             Align(
@@ -755,12 +751,29 @@ class _ReaderScreenState extends State<ReaderScreen> {
         params: PdfViewerParams(
           margin: 3,
           onViewerReady: (document, controller) {
-            if (mounted) setState(() => _pageCount = controller.pageCount);
+            if (mounted) {
+              setState(() => _pageCount = controller.pageCount);
+              _restorePageState(_page);
+            }
           },
           onPageChanged: (pageNumber) {
             if (pageNumber == null) return;
+            final changed = pageNumber != _page;
+            if (changed) {
+              ++_speechRunToken;
+              _tts.stop();
+            }
             setState(() {
               _page = pageNumber;
+              if (changed) {
+                _speaking = false;
+                _spokenText = '';
+                _spokenWord = '';
+                _spokenStart = 0;
+                _spokenEnd = 0;
+                _speechOffset = 0;
+                _resumeOffset = 0;
+              }
               _currentSentenceTranslation = '';
               _lastSentenceStart = -1;
             });
@@ -829,6 +842,7 @@ class _ReaderScreenState extends State<ReaderScreen> {
 
   @override
   void dispose() {
+    ++_speechRunToken;
     _tts.stop();
     _translator.close();
     super.dispose();
