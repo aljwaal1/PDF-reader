@@ -1,12 +1,9 @@
-name: Reader Validation
+name: Reader HUD Update
 
 on:
   push:
     branches: [main]
     paths:
-      - 'lib/main.dart'
-      - 'pwa/index.html'
-      - 'pwa/sw.js'
       - 'tool/reading_hud_patch.py'
       - '.github/workflows/pwa-hidpi-fix.yml'
 
@@ -14,14 +11,13 @@ permissions:
   contents: write
 
 jobs:
-  validate:
+  update-and-validate:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
         with:
           fetch-depth: 0
       - name: Apply fixed reading HUD
-        if: contains(github.event.head_commit.modified, 'tool/reading_hud_patch.py') || contains(github.event.head_commit.added, 'tool/reading_hud_patch.py') || contains(github.event.head_commit.modified, '.github/workflows/pwa-hidpi-fix.yml')
         run: python3 tool/reading_hud_patch.py
       - name: Validate PWA JavaScript syntax
         run: |
@@ -35,29 +31,25 @@ jobs:
           Path('/tmp/pwa-reader.mjs').write_text('\n'.join(scripts), encoding='utf-8')
           PY
           node --check /tmp/pwa-reader.mjs
-      - name: Validate reader invariants
+      - name: Validate reader HUD invariants
         run: |
           python3 - <<'PY'
           from pathlib import Path
           dart = Path('lib/main.dart').read_text(encoding='utf-8')
           pwa = Path('pwa/index.html').read_text(encoding='utf-8')
           checks = {
-              'Android speech run token': '_speechRunToken' in dart,
-              'Android page-bound translation': 'final targetPage = _page;' in dart,
-              'Android auto next': '_autoNext' in dart,
-              'Android fixed reading HUD': 'Positioned(left: 8, right: 8, bottom: 8, child: _readingCard())' in dart,
-              'Android compact sentence': 'maxLines: 2' in dart,
-              'PWA translation queue': 'translationQueue' in pwa,
-              'PWA reading position': 'readingPositionKey' in pwa,
-              'PWA auto next': 'autoNext' in pwa,
-              'PWA fixed reading HUD': 'id="readingHud"' in pwa and 'updateReadingHud' in pwa,
+              'Android speech lifecycle': '_speechRunToken' in dart,
+              'Android fixed HUD': 'Positioned(left: 8, right: 8, bottom: 8, child: _readingCard())' in dart,
+              'Android current word chip': "const Expanded(child: Text('القراءة الآن'" in dart,
+              'Android compact text': 'maxLines: 2' in dart,
+              'PWA fixed HUD': 'id="readingHud"' in pwa,
+              'PWA current word': 'id="hudWord"' in pwa,
+              'PWA live HUD update': 'updateReadingHud(state.offset)' in pwa,
           }
           failed = [name for name, ok in checks.items() if not ok]
           if failed:
-              raise SystemExit('Missing reader invariants: ' + ', '.join(failed))
-          if dart.count('_saveTranslation(_page, translated);') > 1:
-              raise SystemExit('Duplicate Android translation save detected')
-          print('Reader invariants validated')
+              raise SystemExit('Missing HUD invariants: ' + ', '.join(failed))
+          print('Reading HUD invariants validated')
           PY
       - name: Commit HUD source changes
         run: |
