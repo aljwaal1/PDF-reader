@@ -1,34 +1,44 @@
-name: Apply Reader Enhancements
+name: Apply Reader Audit Fixes
 
 on:
   push:
     branches: [main]
     paths:
-      - 'tool/pwa_hidpi_patch.py'
-      - 'tool/audio_nonblocking_fix.py'
+      - 'tool/release_audit_fix.py'
+      - '.github/workflows/pwa-hidpi-fix.yml'
 
 permissions:
   contents: write
 
 jobs:
-  patch:
+  audit-fix:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
         with:
           fetch-depth: 0
-      - name: Apply reader enhancements
+      - name: Apply audited reader fixes
+        run: python3 tool/release_audit_fix.py
+      - name: Validate PWA JavaScript syntax
         run: |
-          python3 tool/pwa_hidpi_patch.py
-          python3 tool/audio_nonblocking_fix.py
-      - name: Commit reader updates
+          python3 - <<'PY'
+          from pathlib import Path
+          import re
+          text = Path('pwa/index.html').read_text(encoding='utf-8')
+          scripts = re.findall(r'<script[^>]*>(.*?)</script>', text, flags=re.S)
+          if not scripts:
+              raise SystemExit('No inline PWA script found')
+          Path('/tmp/pwa-reader.mjs').write_text('\n'.join(scripts), encoding='utf-8')
+          PY
+          node --check /tmp/pwa-reader.mjs
+      - name: Commit audited reader source
         run: |
-          if git diff --quiet -- pwa/index.html pwa/sw.js lib/main.dart; then
-            echo "No reader changes needed"
+          if git diff --quiet -- lib/main.dart; then
+            echo "No audited source changes needed"
             exit 0
           fi
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add pwa/index.html pwa/sw.js lib/main.dart
-          git commit -m "Fix speech startup and keep translation non-blocking"
+          git add lib/main.dart
+          git commit -m "Harden reader lifecycle and translation logic"
           git push
