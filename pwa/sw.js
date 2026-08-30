@@ -1,4 +1,4 @@
-const CACHE='pdf-reader-pwa-v22';
+const CACHE='pdf-reader-pwa-v23';
 const CACHE_PREFIX='pdf-reader-pwa-';
 const ASSETS=['./','index.html','manifest.json','icon.svg'];
 

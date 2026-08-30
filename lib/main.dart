@@ -680,61 +680,61 @@ class _ReaderScreenState extends State<ReaderScreen> {
     final before = _spokenText.substring(sentenceStart, wordStart);
     final current = wordEnd > wordStart ? _spokenText.substring(wordStart, wordEnd) : (_spokenWord.isEmpty ? '…' : _spokenWord);
     final after = _spokenText.substring(wordEnd, sentenceEnd);
-    final words = _spokenText.substring(sentenceStart, sentenceEnd).trim().split(RegExp(r'\s+')).where((e) => e.isNotEmpty).toList();
-    final currentNumber = _spokenText.substring(sentenceStart, wordStart).trim().isEmpty ? 1 : _spokenText.substring(sentenceStart, wordStart).trim().split(RegExp(r'\s+')).length + 1;
 
-    return Container(
-      margin: const EdgeInsets.fromLTRB(6, 5, 6, 4),
-      padding: const EdgeInsets.fromLTRB(12, 10, 12, 8),
-      decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(15), border: Border.all(color: scheme.outlineVariant)),
-      child: Directionality(
-        textDirection: TextDirection.ltr,
+    return Material(
+      elevation: 8,
+      borderRadius: BorderRadius.circular(16),
+      color: Colors.white.withValues(alpha: .98),
+      child: Container(
+        constraints: const BoxConstraints(maxHeight: 154),
+        padding: const EdgeInsets.fromLTRB(12, 9, 12, 9),
+        decoration: BoxDecoration(borderRadius: BorderRadius.circular(16), border: Border.all(color: scheme.outlineVariant)),
         child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
           mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            Row(children: [Container(width: 7, height: 7, decoration: BoxDecoration(color: scheme.primary, shape: BoxShape.circle)), const SizedBox(width: 7), const Expanded(child: Text('NOW READING', style: TextStyle(fontSize: 10, fontWeight: FontWeight.w800, color: Colors.black54, letterSpacing: .7))), Text(words.isEmpty ? '' : '${currentNumber.clamp(1, words.length)} / ${words.length}', style: const TextStyle(fontSize: 11, color: Colors.black45, fontWeight: FontWeight.w600))]),
-            const SizedBox(height: 6),
-            Text.rich(
-              TextSpan(
-                style: const TextStyle(fontSize: 17, height: 1.55, color: Color(0xFF252633)),
-                children: [
-                  TextSpan(text: before, style: const TextStyle(color: Color(0xFF888B98))),
-                  TextSpan(text: current, style: TextStyle(fontWeight: FontWeight.w800, color: const Color(0xFF3033A8), backgroundColor: scheme.primaryContainer)),
-                  TextSpan(text: after),
-                ],
+            Row(
+              children: [
+                Container(width: 7, height: 7, decoration: BoxDecoration(color: scheme.primary, shape: BoxShape.circle)),
+                const SizedBox(width: 7),
+                const Expanded(child: Text('القراءة الآن', style: TextStyle(fontSize: 11, fontWeight: FontWeight.w800, color: Colors.black54))),
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 4),
+                  decoration: BoxDecoration(color: scheme.primaryContainer, borderRadius: BorderRadius.circular(99)),
+                  child: Text(current.trim().isEmpty ? '…' : current.trim(), maxLines: 1, overflow: TextOverflow.ellipsis, style: TextStyle(fontSize: 14, fontWeight: FontWeight.w900, color: scheme.primary)),
+                ),
+              ],
+            ),
+            const SizedBox(height: 5),
+            Directionality(
+              textDirection: TextDirection.ltr,
+              child: Text.rich(
+                TextSpan(
+                  style: const TextStyle(fontSize: 15.5, height: 1.35, color: Color(0xFF252633)),
+                  children: [
+                    TextSpan(text: before, style: const TextStyle(color: Color(0xFF777B88))),
+                    TextSpan(text: current, style: TextStyle(fontWeight: FontWeight.w900, color: const Color(0xFF3033A8), backgroundColor: scheme.primaryContainer)),
+                    TextSpan(text: after),
+                  ],
+                ),
+                maxLines: 2,
+                overflow: TextOverflow.ellipsis,
               ),
             ),
             if (_currentSentenceTranslation.isNotEmpty) ...[
-              const SizedBox(height: 8),
-              Directionality(
-                textDirection: TextDirection.rtl,
-                child: Container(
-                  width: double.infinity,
-                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
-                  decoration: BoxDecoration(color: scheme.secondaryContainer.withValues(alpha: .55), borderRadius: BorderRadius.circular(10)),
-                  child: Text(_currentSentenceTranslation, style: const TextStyle(fontSize: 15, height: 1.55, fontWeight: FontWeight.w600)),
+              const SizedBox(height: 5),
+              Container(
+                width: double.infinity,
+                padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 6),
+                decoration: BoxDecoration(color: scheme.secondaryContainer.withValues(alpha: .7), borderRadius: BorderRadius.circular(10)),
+                child: Directionality(
+                  textDirection: TextDirection.rtl,
+                  child: Text(_currentSentenceTranslation, maxLines: 2, overflow: TextOverflow.ellipsis, textAlign: TextAlign.right, style: const TextStyle(fontSize: 14.5, height: 1.35, fontWeight: FontWeight.w700)),
                 ),
               ),
             ],
-            const SizedBox(height: 7),
-            ClipRRect(borderRadius: BorderRadius.circular(99), child: LinearProgressIndicator(value: _readingProgress, minHeight: 4, backgroundColor: scheme.surfaceContainerHighest)),
-            Align(
-              alignment: Alignment.centerLeft,
-              child: TextButton(
-                style: TextButton.styleFrom(padding: const EdgeInsets.symmetric(horizontal: 0, vertical: 2), minimumSize: Size.zero, tapTargetSize: MaterialTapTargetSize.shrinkWrap),
-                onPressed: () => setState(() => _showTranscript = !_showTranscript),
-                child: Text(_showTranscript ? 'إخفاء النص الكامل' : 'إظهار النص الكامل', style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w700)),
-              ),
-            ),
-            if (_showTranscript)
-              Container(
-                constraints: const BoxConstraints(maxHeight: 92),
-                width: double.infinity,
-                padding: const EdgeInsets.all(9),
-                decoration: BoxDecoration(color: scheme.surfaceContainerHighest, borderRadius: BorderRadius.circular(10)),
-                child: SingleChildScrollView(child: SelectableText(_spokenText, style: const TextStyle(fontSize: 13, height: 1.55))),
-              ),
+            const SizedBox(height: 5),
+            ClipRRect(borderRadius: BorderRadius.circular(99), child: LinearProgressIndicator(value: _readingProgress, minHeight: 3, backgroundColor: scheme.surfaceContainerHighest)),
           ],
         ),
       ),
@@ -859,7 +859,13 @@ class _ReaderScreenState extends State<ReaderScreen> {
         title: Text(_pageCount == 0 ? 'PDF Reader' : 'الصفحة $_page / $_pageCount', style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w700)),
         actions: [IconButton(tooltip: _autoNext ? 'الانتقال التلقائي مفعّل' : 'الانتقال التلقائي متوقف', onPressed: () => setState(() => _autoNext = !_autoNext), icon: Icon(_autoNext ? Icons.skip_next_rounded : Icons.skip_next_outlined, color: _autoNext ? scheme.primary : null)), PopupMenuButton<TranslationLayout>(tooltip: 'طريقة عرض الترجمة', icon: const Icon(Icons.view_quilt_outlined, size: 22), initialValue: _layout, onSelected: (value) => setState(() => _layout = value), itemBuilder: (_) => TranslationLayout.values.map((value) => PopupMenuItem(value: value, child: Text(_layoutName(value)))).toList())],
       ),
-      body: Column(children: [Expanded(child: _body()), _readingCard()]),
+      body: Stack(
+        children: [
+          Positioned.fill(child: _body()),
+          if (_spokenText.isNotEmpty && (_speaking || _spokenWord.isNotEmpty))
+            Positioned(left: 8, right: 8, bottom: 8, child: _readingCard()),
+        ],
+      ),
       bottomNavigationBar: SafeArea(
         top: false,
         child: Container(
