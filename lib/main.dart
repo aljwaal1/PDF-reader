@@ -365,6 +365,12 @@ class _ReaderScreenState extends State<ReaderScreen> {
   int _spokenStart = 0;
   int _spokenEnd = 0;
   int _speechOffset = 0;
+  int _resumeOffset = 0;
+  int _lastSentenceStart = -1;
+  bool _autoNext = true;
+  bool _translatingSentence = false;
+  String _currentSentenceTranslation = '';
+  final Map<int, Map<int, String>> _sentenceTranslations = {};
   TranslationLayout _layout = TranslationLayout.pdfOnly;
 
   @override
@@ -374,7 +380,7 @@ class _ReaderScreenState extends State<ReaderScreen> {
     _tts.setLanguage('en-US');
     _tts.setSpeechRate(_speechRate);
     _tts.setCompletionHandler(() {
-      if (mounted) setState(() => _speaking = false);
+      _handleSpeechComplete();
     });
     _tts.setProgressHandler((text, start, end, word) {
       if (!mounted) return;
@@ -384,7 +390,10 @@ class _ReaderScreenState extends State<ReaderScreen> {
         _spokenWord = word;
         _spokenStart = absoluteStart;
         _spokenEnd = absoluteEnd;
+        _resumeOffset = absoluteStart;
       });
+      _saveReadingOffset(_page, absoluteStart);
+      _translateSentenceAt(absoluteStart);
     });
     _prepareTranslationModels();
   }
@@ -411,6 +420,116 @@ class _ReaderScreenState extends State<ReaderScreen> {
     return text;
   }
 
+  String _positionKey(int page) => 'readingOffset:${widget.filePath}:$page';
+  String _translationKey(int page) => 'pageTranslation:${widget.filePath}:$page';
+
+  Future<void> _saveReadingOffset(int page, int offset) async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setInt(_positionKey(page), offset);
+  }
+
+  Future<int> _loadReadingOffset(int page) async {
+    final prefs = await SharedPreferences.getInstance();
+    return prefs.getInt(_positionKey(page)) ?? 0;
+  }
+
+  Future<void> _clearReadingOffset(int page) async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.remove(_positionKey(page));
+  }
+
+  Future<void> _saveTranslation(int page, String text) async {
+    if (text.trim().isEmpty) return;
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setString(_translationKey(page), text);
+  }
+
+  Future<void> _restorePageState(int page) async {
+    final prefs = await SharedPreferences.getInstance();
+    final savedTranslation = prefs.getString(_translationKey(page));
+    final offset = prefs.getInt(_positionKey(page)) ?? 0;
+    if (!mounted || page != _page) return;
+    setState(() {
+      _resumeOffset = offset;
+      _currentSentenceTranslation = '';
+      _lastSentenceStart = -1;
+      if (savedTranslation != null && savedTranslation.trim().isNotEmpty) {
+        _translations[page] = savedTranslation;
+      }
+    });
+  }
+
+  Future<void> _translateSentenceAt(int position) async {
+    if (_spokenText.isEmpty || _translatingSentence) return;
+    final bounds = _sentenceBounds(position);
+    final start = bounds.$1;
+    final end = bounds.$2;
+    if (end <= start || start == _lastSentenceStart) return;
+    final sentence = _spokenText.substring(start, end).trim();
+    if (sentence.isEmpty) return;
+    _lastSentenceStart = start;
+    _translatingSentence = true;
+    try {
+      final translated = await _translator.translateText(sentence);
+      final pageMap = _sentenceTranslations.putIfAbsent(_page, () => <int, String>{});
+      pageMap[start] = translated;
+      final keys = pageMap.keys.toList()..sort();
+      final full = keys.map((key) => pageMap[key]!).join('\n\n');
+      if (!mounted) return;
+      setState(() {
+        _currentSentenceTranslation = translated;
+        _translations[_page] = full;
+      });
+      await _saveTranslation(_page, full);
+    } catch (_) {
+      // Keep reading even if one sentence cannot be translated.
+    } finally {
+      _translatingSentence = false;
+    }
+  }
+
+  Future<void> _startSpeechFrom(int offset) async {
+    final text = await _extractCurrentPage();
+    if (text.isEmpty) {
+      _showMessage('لا يوجد نص إنجليزي قابل للقراءة في هذه الصفحة.');
+      return;
+    }
+    final safeOffset = offset.clamp(0, text.length);
+    final source = text.substring(safeOffset);
+    final remaining = source.trimLeft();
+    final actualOffset = safeOffset + (source.length - remaining.length);
+    if (remaining.isEmpty) return;
+    if (!mounted) return;
+    setState(() {
+      _spokenText = text;
+      _speechOffset = actualOffset;
+      _resumeOffset = actualOffset;
+      _spokenStart = actualOffset;
+      _spokenEnd = actualOffset;
+      _spokenWord = '';
+      _speaking = true;
+      _lastSentenceStart = -1;
+    });
+    await _tts.setSpeechRate(_speechRate);
+    await _translateSentenceAt(actualOffset);
+    await _tts.speak(remaining);
+  }
+
+  Future<void> _handleSpeechComplete() async {
+    if (!mounted) return;
+    final completedPage = _page;
+    await _clearReadingOffset(completedPage);
+    setState(() {
+      _speaking = false;
+      _resumeOffset = 0;
+    });
+    if (_autoNext && completedPage < _pageCount) {
+      await _go(completedPage + 1, keepAutoReading: true);
+      await Future<void>.delayed(const Duration(milliseconds: 220));
+      if (mounted && _page == completedPage + 1) await _startSpeechFrom(_resumeOffset);
+    }
+  }
+
   Future<void> _translatePage() async {
     if (_translations.containsKey(_page)) {
       setState(() {
@@ -430,6 +549,7 @@ class _ReaderScreenState extends State<ReaderScreen> {
         setState(() {
           _translations[_page] = translated;
           if (_layout == TranslationLayout.pdfOnly) _layout = TranslationLayout.bottomSheet;
+          _saveTranslation(_page, translated);
         });
       }
     } catch (_) {
@@ -441,25 +561,17 @@ class _ReaderScreenState extends State<ReaderScreen> {
 
   Future<void> _toggleSpeech() async {
     if (_speaking) {
+      final resume = _restartOffset();
       await _tts.stop();
-      if (mounted) setState(() => _speaking = false);
+      await _saveReadingOffset(_page, resume);
+      if (mounted) setState(() {
+        _speaking = false;
+        _resumeOffset = resume;
+      });
       return;
     }
-    final text = await _extractCurrentPage();
-    if (text.isEmpty) {
-      _showMessage('لا يوجد نص إنجليزي قابل للقراءة في هذه الصفحة.');
-      return;
-    }
-    setState(() {
-      _spokenText = text;
-      _spokenStart = 0;
-      _spokenEnd = 0;
-      _spokenWord = '';
-      _speechOffset = 0;
-      _speaking = true;
-    });
-    await _tts.setSpeechRate(_speechRate);
-    await _tts.speak(text);
+    final saved = _resumeOffset > 0 ? _resumeOffset : await _loadReadingOffset(_page);
+    await _startSpeechFrom(saved);
   }
 
   int _restartOffset() {
@@ -506,7 +618,7 @@ class _ReaderScreenState extends State<ReaderScreen> {
     ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(message)));
   }
 
-  Future<void> _go(int nextPage) async {
+  Future<void> _go(int nextPage, {bool keepAutoReading = false}) async {
     if (!_pdfController.isReady || nextPage < 1 || nextPage > _pageCount) return;
     await _tts.stop();
     setState(() {
@@ -515,9 +627,14 @@ class _ReaderScreenState extends State<ReaderScreen> {
       _spokenStart = 0;
       _spokenEnd = 0;
       _speechOffset = 0;
+      _resumeOffset = 0;
+      _spokenText = '';
+      _currentSentenceTranslation = '';
+      _lastSentenceStart = -1;
       _showTranscript = false;
     });
     await _pdfController.goToPage(pageNumber: nextPage, anchor: PdfPageAnchor.top);
+    await _restorePageState(nextPage);
   }
 
   double get _readingProgress => _spokenText.isEmpty ? 0 : (_spokenEnd / _spokenText.length).clamp(0.0, 1.0);
@@ -579,6 +696,18 @@ class _ReaderScreenState extends State<ReaderScreen> {
                 ],
               ),
             ),
+            if (_currentSentenceTranslation.isNotEmpty) ...[
+              const SizedBox(height: 8),
+              Directionality(
+                textDirection: TextDirection.rtl,
+                child: Container(
+                  width: double.infinity,
+                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+                  decoration: BoxDecoration(color: scheme.secondaryContainer.withValues(alpha: .55), borderRadius: BorderRadius.circular(10)),
+                  child: Text(_currentSentenceTranslation, style: const TextStyle(fontSize: 15, height: 1.55, fontWeight: FontWeight.w600)),
+                ),
+              ),
+            ],
             const SizedBox(height: 7),
             ClipRRect(borderRadius: BorderRadius.circular(99), child: LinearProgressIndicator(value: _readingProgress, minHeight: 4, backgroundColor: scheme.surfaceContainerHighest)),
             Align(
@@ -617,8 +746,13 @@ class _ReaderScreenState extends State<ReaderScreen> {
           },
           onPageChanged: (pageNumber) {
             if (pageNumber == null) return;
-            setState(() => _page = pageNumber);
+            setState(() {
+              _page = pageNumber;
+              _currentSentenceTranslation = '';
+              _lastSentenceStart = -1;
+            });
             _savePage(pageNumber);
+            _restorePageState(pageNumber);
           },
         ),
       ),
@@ -696,7 +830,7 @@ class _ReaderScreenState extends State<ReaderScreen> {
         toolbarHeight: 48,
         titleSpacing: 0,
         title: Text(_pageCount == 0 ? 'PDF Reader' : 'الصفحة $_page / $_pageCount', style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w700)),
-        actions: [PopupMenuButton<TranslationLayout>(tooltip: 'طريقة عرض الترجمة', icon: const Icon(Icons.view_quilt_outlined, size: 22), initialValue: _layout, onSelected: (value) => setState(() => _layout = value), itemBuilder: (_) => TranslationLayout.values.map((value) => PopupMenuItem(value: value, child: Text(_layoutName(value)))).toList())],
+        actions: [IconButton(tooltip: _autoNext ? 'الانتقال التلقائي مفعّل' : 'الانتقال التلقائي متوقف', onPressed: () => setState(() => _autoNext = !_autoNext), icon: Icon(_autoNext ? Icons.skip_next_rounded : Icons.skip_next_outlined, color: _autoNext ? scheme.primary : null)), PopupMenuButton<TranslationLayout>(tooltip: 'طريقة عرض الترجمة', icon: const Icon(Icons.view_quilt_outlined, size: 22), initialValue: _layout, onSelected: (value) => setState(() => _layout = value), itemBuilder: (_) => TranslationLayout.values.map((value) => PopupMenuItem(value: value, child: Text(_layoutName(value)))).toList())],
       ),
       body: Column(children: [Expanded(child: _body()), _readingCard()]),
       bottomNavigationBar: SafeArea(
