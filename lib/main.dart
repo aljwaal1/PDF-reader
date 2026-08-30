@@ -511,7 +511,7 @@ class _ReaderScreenState extends State<ReaderScreen> {
       _lastSentenceStart = -1;
     });
     await _tts.setSpeechRate(_speechRate);
-    await _translateSentenceAt(actualOffset);
+    _translateSentenceAt(actualOffset);
     await _tts.speak(remaining);
   }
 
@@ -549,6 +549,7 @@ class _ReaderScreenState extends State<ReaderScreen> {
         setState(() {
           _translations[_page] = translated;
           if (_layout == TranslationLayout.pdfOnly) _layout = TranslationLayout.bottomSheet;
+          _saveTranslation(_page, translated);
           _saveTranslation(_page, translated);
         });
       }
@@ -696,6 +697,18 @@ class _ReaderScreenState extends State<ReaderScreen> {
                 ],
               ),
             ),
+            if (_currentSentenceTranslation.isNotEmpty) ...[
+              const SizedBox(height: 8),
+              Directionality(
+                textDirection: TextDirection.rtl,
+                child: Container(
+                  width: double.infinity,
+                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+                  decoration: BoxDecoration(color: scheme.secondaryContainer.withValues(alpha: .55), borderRadius: BorderRadius.circular(10)),
+                  child: Text(_currentSentenceTranslation, style: const TextStyle(fontSize: 15, height: 1.55, fontWeight: FontWeight.w600)),
+                ),
+              ),
+            ],
             if (_currentSentenceTranslation.isNotEmpty) ...[
               const SizedBox(height: 8),
               Directionality(
