@@ -1,6 +1,7 @@
 from pathlib import Path
 
 # Keep speech independent from translation latency on both PWA and Android.
+# This patch intentionally lets TTS start immediately while translation queues in parallel.
 
 # ---------- PWA ----------
 index = Path('pwa/index.html')
