@@ -1,5 +1,6 @@
 from pathlib import Path
 
+# One-shot release hardening pass. Source becomes the canonical build input after this runs.
 p = Path('lib/main.dart')
 s = p.read_text(encoding='utf-8')
 
@@ -158,7 +159,6 @@ new_complete = """  Future<void> _handleSpeechComplete(int completedPage, int ru
 """
 s = s[:start] + new_complete + s[end:]
 
-# Page translation is tied to the page where the request started.
 start = s.find("  Future<void> _translatePage() async {")
 end = s.find("\n  Future<void> _toggleSpeech", start)
 if start < 0 or end < 0:
@@ -196,7 +196,6 @@ new_translate_page = """  Future<void> _translatePage() async {
 """
 s = s[:start] + new_translate_page + s[end:]
 
-# Manual stop invalidates the current utterance so it can never trigger auto-next.
 s = s.replace("""      final resume = _restartOffset();
       await _tts.stop();
       await _saveReadingOffset(_page, resume);""", """      final resume = _restartOffset();
@@ -231,7 +230,6 @@ s = s.replace("""    if (!_pdfController.isReady || nextPage < 1 || nextPage > _
     ++_speechRunToken;
     await _tts.stop();""", 1)
 
-# Swiping pages manually must stop speech from the old page.
 old_page_changed = """          onPageChanged: (pageNumber) {
             if (pageNumber == null) return;
             setState(() {
