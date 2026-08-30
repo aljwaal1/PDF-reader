@@ -5,6 +5,7 @@ on:
     branches: [main]
     paths:
       - 'tool/pwa_hidpi_patch.py'
+      - 'tool/audio_nonblocking_fix.py'
 
 permissions:
   contents: write
@@ -17,7 +18,9 @@ jobs:
         with:
           fetch-depth: 0
       - name: Apply reader enhancements
-        run: python3 tool/pwa_hidpi_patch.py
+        run: |
+          python3 tool/pwa_hidpi_patch.py
+          python3 tool/audio_nonblocking_fix.py
       - name: Commit reader updates
         run: |
           if git diff --quiet -- pwa/index.html pwa/sw.js lib/main.dart; then
@@ -27,5 +30,5 @@ jobs:
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git add pwa/index.html pwa/sw.js lib/main.dart
-          git commit -m "Improve guided reading on PWA and Android"
+          git commit -m "Fix speech startup and keep translation non-blocking"
           git push
