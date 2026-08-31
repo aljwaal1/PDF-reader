@@ -358,7 +358,6 @@ class _ReaderScreenState extends State<ReaderScreen> {
   int _pageCount = 0;
   bool _busy = false;
   bool _speaking = false;
-  bool _showTranscript = false;
   double _speechRate = .50;
   String _spokenText = '';
   String _spokenWord = '';
@@ -640,7 +639,6 @@ class _ReaderScreenState extends State<ReaderScreen> {
       _spokenText = '';
       _currentSentenceTranslation = '';
       _lastSentenceStart = -1;
-      _showTranscript = false;
     });
     await _pdfController.goToPage(pageNumber: nextPage, anchor: PdfPageAnchor.top);
     await _restorePageState(nextPage);
