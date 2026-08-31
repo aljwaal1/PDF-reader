@@ -19,8 +19,8 @@ jobs:
           fetch-depth: 0
       - name: Apply fixed reading HUD
         run: python3 tool/reading_hud_patch.py
-      - name: Remove obsolete transcript flag
-        run: sed -i "/bool _showTranscript = false;/d" lib/main.dart
+      - name: Remove obsolete transcript references
+        run: sed -i "/_showTranscript/d" lib/main.dart
       - name: Validate PWA JavaScript syntax
         run: |
           python3 - <<'PY'
@@ -47,7 +47,7 @@ jobs:
               'PWA fixed HUD': 'id="readingHud"' in pwa,
               'PWA current word': 'id="hudWord"' in pwa,
               'PWA live HUD update': 'updateReadingHud(state.offset)' in pwa,
-              'No obsolete transcript flag': '_showTranscript' not in dart,
+              'No obsolete transcript references': '_showTranscript' not in dart,
           }
           failed = [name for name, ok in checks.items() if not ok]
           if failed:
