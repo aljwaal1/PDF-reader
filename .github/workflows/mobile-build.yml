@@ -8,6 +8,7 @@ on:
 permissions:
   contents: write
 
+# Clean source build: analyze, test, then publish the Android release APK.
 jobs:
   android:
     runs-on: ubuntu-latest
