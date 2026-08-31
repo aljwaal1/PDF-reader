@@ -346,7 +346,7 @@ class ReaderScreen extends StatefulWidget {
   State<ReaderScreen> createState() => _ReaderScreenState();
 }
 
-class _ReaderScreenState extends State<ReaderScreen> {
+class _ReaderScreenState extends State<ReaderScreen> with WidgetsBindingObserver {
   final PdfViewerController _pdfController = PdfViewerController();
   final FlutterTts _tts = FlutterTts();
   final OnDeviceTranslator _translator = OnDeviceTranslator(sourceLanguage: TranslateLanguage.english, targetLanguage: TranslateLanguage.arabic);
@@ -372,11 +372,13 @@ class _ReaderScreenState extends State<ReaderScreen> {
   String _currentSentenceTranslation = '';
   final Map<int, Map<int, String>> _sentenceTranslations = {};
   Future<void>? _translationSetup;
+  String? _translationError;
   TranslationLayout _layout = TranslationLayout.pdfOnly;
 
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addObserver(this);
     _page = widget.initialPage;
     _tts.setLanguage('en-US');
     _tts.setSpeechRate(_speechRate);
@@ -396,15 +398,43 @@ class _ReaderScreenState extends State<ReaderScreen> {
     _translationSetup = _prepareTranslationModels();
   }
 
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.paused ||
+        state == AppLifecycleState.inactive ||
+        state == AppLifecycleState.detached ||
+        state == AppLifecycleState.hidden) {
+      _stopSpeechForBackground();
+    }
+  }
+
+  void _stopSpeechForBackground() {
+    final resume = _restartOffset();
+    ++_speechRunToken;
+    _tts.stop();
+    if (resume > 0) _saveReadingOffset(_page, resume);
+    if (!mounted) return;
+    setState(() {
+      _speaking = false;
+      _resumeOffset = resume;
+      _spokenWord = '';
+    });
+  }
+
   Future<void> _prepareTranslationModels() async {
+    _translationError = null;
     try {
       for (final language in [TranslateLanguage.english, TranslateLanguage.arabic]) {
         final code = language.bcpCode;
         if (!await _modelManager.isModelDownloaded(code)) {
-          await _modelManager.downloadModel(code, isWifiRequired: false);
+          final ok = await _modelManager.downloadModel(code, isWifiRequired: false);
+          if (!ok) throw StateError('تعذر تنزيل نموذج اللغة $code');
         }
       }
-    } catch (_) {}
+    } catch (e) {
+      _translationError = 'تعذر تجهيز الترجمة. افتح الإنترنت وحاول مرة أخرى.';
+      rethrow;
+    }
   }
 
   String _cleanText(String value) => value.replaceAll(RegExp(r'\s+'), ' ').replaceAll(RegExp(r'(^|\s)(W\d+|Page\s*\d+)(?=\s|$)', caseSensitive: false), ' ').replaceAll(RegExp(r'\s+'), ' ').trim();
@@ -484,7 +514,11 @@ class _ReaderScreenState extends State<ReaderScreen> {
           _translations[page] = full;
         });
       } catch (_) {
-        // Speech must never depend on translation availability.
+        _translationSetup = null;
+        _translationError = 'تعذرت ترجمة الجملة. اضغط ترجمة لإعادة المحاولة.';
+        if (mounted && page == _page && sourceText == _spokenText) {
+          setState(() => _currentSentenceTranslation = _translationError!);
+        }
       }
     });
     return _sentenceTranslationQueue;
@@ -553,12 +587,22 @@ class _ReaderScreenState extends State<ReaderScreen> {
     }
     setState(() => _busy = true);
     try {
-      final text = await _extractCurrentPage(pageNumber: targetPage);
+      var text = await _extractCurrentPage(pageNumber: targetPage);
+      if (text.isEmpty && targetPage == _page && _spokenText.trim().isNotEmpty) {
+        text = _spokenText;
+        _pageText[targetPage] = text;
+      }
       if (text.isEmpty) {
         _showMessage('لم يتم العثور على نص قابل للاستخراج في هذه الصفحة.');
         return;
       }
-      await (_translationSetup ??= _prepareTranslationModels());
+      try {
+        await (_translationSetup ??= _prepareTranslationModels());
+      } catch (_) {
+        _translationSetup = null;
+        _showMessage(_translationError ?? 'تعذر تجهيز الترجمة. تحقق من الإنترنت وحاول مجددًا.');
+        return;
+      }
       final translated = await _translator.translateText(text);
       await _saveTranslation(targetPage, translated);
       if (mounted) {
@@ -568,7 +612,8 @@ class _ReaderScreenState extends State<ReaderScreen> {
         });
       }
     } catch (_) {
-      _showMessage('تعذر ترجمة الصفحة. تحقق من الاتصال عند تنزيل نموذج الترجمة لأول مرة.');
+      _translationSetup = null;
+      _showMessage(_translationError ?? 'تعذر ترجمة الصفحة. تحقق من الإنترنت ثم حاول مرة أخرى.');
     } finally {
       if (mounted) setState(() => _busy = false);
     }
@@ -840,6 +885,7 @@ class _ReaderScreenState extends State<ReaderScreen> {
 
   @override
   void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
     ++_speechRunToken;
     _tts.stop();
     _translator.close();
