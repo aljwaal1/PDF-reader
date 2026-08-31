@@ -19,6 +19,8 @@ jobs:
           fetch-depth: 0
       - name: Apply fixed reading HUD
         run: python3 tool/reading_hud_patch.py
+      - name: Remove obsolete transcript flag
+        run: sed -i "/bool _showTranscript = false;/d" lib/main.dart
       - name: Validate PWA JavaScript syntax
         run: |
           python3 - <<'PY'
@@ -45,6 +47,7 @@ jobs:
               'PWA fixed HUD': 'id="readingHud"' in pwa,
               'PWA current word': 'id="hudWord"' in pwa,
               'PWA live HUD update': 'updateReadingHud(state.offset)' in pwa,
+              'No obsolete transcript flag': '_showTranscript' not in dart,
           }
           failed = [name for name, ok in checks.items() if not ok]
           if failed:
@@ -60,5 +63,5 @@ jobs:
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git add lib/main.dart pwa/index.html pwa/sw.js
-          git commit -m "Keep current reading and translation visible"
+          git commit -m "Fix fixed reading HUD build"
           git push
