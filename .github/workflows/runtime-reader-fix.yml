@@ -1,0 +1,52 @@
+name: Runtime Reader Fix
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'tool/runtime_reader_fix.py'
+      - '.github/workflows/runtime-reader-fix.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  patch-validate-commit:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Apply runtime fixes
+        run: python3 tool/runtime_reader_fix.py
+      - name: Validate lifecycle and translation fixes
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          s = Path('lib/main.dart').read_text(encoding='utf-8')
+          checks = {
+            'observer mixin': 'with WidgetsBindingObserver' in s,
+            'observer registered': 'WidgetsBinding.instance.addObserver(this);' in s,
+            'background stop': 'void _stopSpeechForBackground()' in s,
+            'lifecycle callback': 'didChangeAppLifecycleState' in s,
+            'translation fallback': 'text = _spokenText;' in s,
+            'translation retry': '_translationSetup = null;' in s,
+            'observer removed': 'WidgetsBinding.instance.removeObserver(this);' in s,
+          }
+          failed = [k for k,v in checks.items() if not v]
+          if failed:
+            raise SystemExit('Missing fixes: ' + ', '.join(failed))
+          print('Runtime fixes validated')
+          PY
+      - name: Commit source fix
+        run: |
+          if git diff --quiet -- lib/main.dart; then
+            echo "No source changes needed"
+            exit 0
+          fi
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add lib/main.dart
+          git commit -m "Stop speech in background and recover translation"
+          git push
